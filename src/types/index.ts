@@ -75,19 +75,32 @@ export interface Lead {
 
 export interface Customer {
   id: string;
-  customerId: string;
+  customerId: string; // e.g. ARS-2026-00001
   name: string;
+  passportNumber: string;
+  nic?: string;
+  dateOfBirth?: string;
+  gender?: 'Male' | 'Female' | 'Other';
+  nationality?: string;
+  address?: string;
   phone: string;
   whatsApp: string;
   email: string;
-  passportNumber: string;
+  maritalStatus?: 'Single' | 'Married' | 'Divorced' | 'Widowed';
+  occupation?: string;
+  monthlyIncome?: number;
+  bankBalance?: number;
+  applyingCountry?: string;
+  visaCategory?: VisaCategory;
+  travelPurpose?: string;
+  previousVisaHistory?: string;
+  previousRefusals?: string;
   assignedConsultant: string;
   assignedConsultantId?: string;
+  leadSource?: LeadSource;
+  notes?: string;
   activeCasesCount: number;
   status: 'Active' | 'Inactive' | 'Archived';
-  address?: string;
-  nic?: string;
-  dateOfBirth?: string;
   createdAt: string;
 }
 

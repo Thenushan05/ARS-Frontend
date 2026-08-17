@@ -138,7 +138,13 @@ export const customersApi = {
       let filtered = [...customersStore];
       if (params?.search) {
         const q = params.search.toLowerCase();
-        filtered = filtered.filter(c => c.name.toLowerCase().includes(q) || c.passportNumber.toLowerCase().includes(q) || c.phone.includes(q));
+        filtered = filtered.filter(c => 
+          c.name.toLowerCase().includes(q) || 
+          c.passportNumber.toLowerCase().includes(q) || 
+          c.customerId.toLowerCase().includes(q) ||
+          c.phone.includes(q) ||
+          (c.nic && c.nic.toLowerCase().includes(q))
+        );
       }
       return mockDelay({
         data: filtered,
@@ -149,27 +155,104 @@ export const customersApi = {
       });
     }
   },
-  create: async (customer: Partial<Customer>): Promise<Customer> => {
+  create: async (customerData: Partial<Customer>): Promise<{ customer: Customer; isExisting: boolean; newCaseId?: string }> => {
     try {
-      const res = await axiosInstance.post('/customers', customer);
+      const res = await axiosInstance.post('/customers', customerData);
       return res.data;
     } catch {
+      // Check if existing customer matches passport or NIC
+      const existing = customersStore.find(c => 
+        (customerData.passportNumber && c.passportNumber.toLowerCase() === customerData.passportNumber.toLowerCase()) ||
+        (customerData.nic && c.nic && c.nic.toLowerCase() === customerData.nic.toLowerCase())
+      );
+
+      if (existing) {
+        // Create new Visa Case under existing customer without creating duplicate customer record
+        const newCaseNumber = `CAS-${Math.floor(9000 + Math.random() * 1000)}`;
+        const newCase: VisaCase = {
+          id: `case-${Date.now()}`,
+          caseId: newCaseNumber,
+          customerId: existing.id,
+          customerName: existing.name,
+          customerPhone: existing.phone,
+          country: customerData.applyingCountry || 'France',
+          visaCategory: customerData.visaCategory || 'Tourist',
+          visaType: `${customerData.applyingCountry || 'France'} ${customerData.visaCategory || 'Tourist'} Visa`,
+          consultant: customerData.assignedConsultant || existing.assignedConsultant || 'Saman Jayasinghe',
+          status: 'New Case',
+          notes: customerData.notes || 'Additional country application for existing customer.',
+          createdAt: new Date().toISOString().split('T')[0]
+        };
+        casesStore.unshift(newCase);
+        existing.activeCasesCount = (existing.activeCasesCount || 0) + 1;
+
+        return mockDelay({
+          customer: existing,
+          isExisting: true,
+          newCaseId: newCaseNumber
+        });
+      }
+
+      // Generate ARS-2026-00001 formatted Customer ID
+      const year = new Date().getFullYear();
+      const count = customersStore.length + 1;
+      const formattedNum = String(count).padStart(5, '0');
+      const generatedCustId = `ARS-${year}-${formattedNum}`;
+
       const newCust: Customer = {
         id: `cust-${Date.now()}`,
-        customerId: `CUST-${Math.floor(5000 + Math.random() * 4000)}`,
-        name: customer.name || '',
-        phone: customer.phone || '',
-        whatsApp: customer.whatsApp || customer.phone || '',
-        email: customer.email || '',
-        passportNumber: customer.passportNumber || '',
-        assignedConsultant: customer.assignedConsultant || 'Saman Jayasinghe',
-        activeCasesCount: 0,
+        customerId: generatedCustId,
+        name: customerData.name || '',
+        passportNumber: customerData.passportNumber || '',
+        nic: customerData.nic,
+        dateOfBirth: customerData.dateOfBirth,
+        gender: customerData.gender || 'Male',
+        nationality: customerData.nationality || 'Sri Lankan',
+        address: customerData.address,
+        phone: customerData.phone || '',
+        whatsApp: customerData.whatsApp || customerData.phone || '',
+        email: customerData.email || '',
+        maritalStatus: customerData.maritalStatus || 'Single',
+        occupation: customerData.occupation,
+        monthlyIncome: customerData.monthlyIncome,
+        bankBalance: customerData.bankBalance,
+        applyingCountry: customerData.applyingCountry,
+        visaCategory: customerData.visaCategory,
+        travelPurpose: customerData.travelPurpose,
+        previousVisaHistory: customerData.previousVisaHistory,
+        previousRefusals: customerData.previousRefusals,
+        assignedConsultant: customerData.assignedConsultant || 'Saman Jayasinghe',
+        leadSource: customerData.leadSource || 'Walk-in',
+        notes: customerData.notes,
+        activeCasesCount: 1,
         status: 'Active',
-        address: customer.address,
         createdAt: new Date().toISOString().split('T')[0]
       };
       customersStore.unshift(newCust);
-      return mockDelay(newCust);
+
+      // Automatically create initial Visa Case for the new customer
+      const initialCaseNumber = `CAS-${Math.floor(9000 + Math.random() * 1000)}`;
+      const initialCase: VisaCase = {
+        id: `case-${Date.now()}`,
+        caseId: initialCaseNumber,
+        customerId: newCust.id,
+        customerName: newCust.name,
+        customerPhone: newCust.phone,
+        country: customerData.applyingCountry || 'France',
+        visaCategory: customerData.visaCategory || 'Tourist',
+        visaType: `${customerData.applyingCountry || 'France'} ${customerData.visaCategory || 'Tourist'} Visa`,
+        consultant: newCust.assignedConsultant,
+        status: 'New Case',
+        notes: customerData.notes || 'Initial Visa Case created upon customer registration.',
+        createdAt: new Date().toISOString().split('T')[0]
+      };
+      casesStore.unshift(initialCase);
+
+      return mockDelay({
+        customer: newCust,
+        isExisting: false,
+        newCaseId: initialCaseNumber
+      });
     }
   },
   update: async (id: string, updates: Partial<Customer>): Promise<Customer> => {
