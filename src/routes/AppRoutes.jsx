@@ -16,12 +16,14 @@ import DashboardPage from '@/features/dashboard/pages/DashboardPage'
 import NotFoundPage from '@/features/dashboard/pages/NotFoundPage'
 import ForbiddenPage from '@/features/dashboard/pages/ForbiddenPage'
 import LeadListPage from '@/features/leads/pages/LeadListPage'
+import CustomerListPage from '@/features/customers/pages/CustomerListPage'
+import CustomerProfilePage from '@/features/customers/pages/CustomerProfilePage'
 
-// Every menu destination other than Dashboard and Leads is still a
-// Phase 2+ feature (§48) — rendered as a permission-gated placeholder
-// until that phase lands, so navigation and access control can be
-// exercised end-to-end now.
-const PLACEHOLDER_ITEMS = MENU_ITEMS.filter((item) => item.key !== 'dashboard' && item.key !== 'leads')
+// Every menu destination other than Dashboard, Leads, and Customers is
+// still a Phase 2+ feature (§48) — rendered as a permission-gated
+// placeholder until that phase lands, so navigation and access control
+// can be exercised end-to-end now.
+const PLACEHOLDER_ITEMS = MENU_ITEMS.filter((item) => !['dashboard', 'leads', 'customers'].includes(item.key))
 
 /**
  * §49 route architecture, in one place:
@@ -44,6 +46,11 @@ export function AppRoutes() {
 
           <Route element={<PermissionRoute permission={PERMISSIONS.LEADS_VIEW} />}>
             <Route path={ROUTES.LEADS} element={<LeadListPage />} />
+          </Route>
+
+          <Route element={<PermissionRoute permission={PERMISSIONS.CUSTOMERS_VIEW} />}>
+            <Route path={ROUTES.CUSTOMERS} element={<CustomerListPage />} />
+            <Route path={ROUTES.CUSTOMER_DETAIL} element={<CustomerProfilePage />} />
           </Route>
 
           {PLACEHOLDER_ITEMS.map(({ key, path, label, permission }) => (

@@ -1,5 +1,10 @@
 import { STATUS_TONES } from '@/constants/statusColors'
 
+// Re-exported so existing `from '../constants'` imports in this feature's
+// components keep working unchanged now that Customers needs the same
+// vocabulary too and it moved to a shared location.
+export { VISA_CATEGORY, VISA_CATEGORY_LABELS, VISA_CATEGORY_OPTIONS } from '@/constants/visaCategory'
+
 /**
  * Wire-format values MUST match Backend/src/constants/leadEnums.js exactly
  * — lowercase snake_case, same convention as constants/roles.js.
@@ -73,35 +78,6 @@ export const LEAD_SOURCE_LABELS = Object.freeze({
 export const LEAD_SOURCE_OPTIONS = Object.values(LEAD_SOURCE).map((value) => ({
   value,
   label: LEAD_SOURCE_LABELS[value],
-}))
-
-// §11 visa category list — same controlled vocabulary the lead carries
-// through to a real VisaCase once converted (Phase 3).
-export const VISA_CATEGORY = Object.freeze({
-  TOURIST: 'tourist_visa',
-  STUDENT: 'student_visa',
-  WORK: 'work_visa',
-  BUSINESS: 'business_visa',
-  SPONSOR_FAMILY: 'sponsor_family_visa',
-  E_VISA: 'e_visa',
-  TRANSIT: 'transit_visa',
-  OTHER: 'other_visa',
-})
-
-export const VISA_CATEGORY_LABELS = Object.freeze({
-  [VISA_CATEGORY.TOURIST]: 'Tourist Visa',
-  [VISA_CATEGORY.STUDENT]: 'Student Visa',
-  [VISA_CATEGORY.WORK]: 'Work Visa',
-  [VISA_CATEGORY.BUSINESS]: 'Business Visa',
-  [VISA_CATEGORY.SPONSOR_FAMILY]: 'Sponsor/Family Visa',
-  [VISA_CATEGORY.E_VISA]: 'e-Visa',
-  [VISA_CATEGORY.TRANSIT]: 'Transit Visa',
-  [VISA_CATEGORY.OTHER]: 'Other Visa',
-})
-
-export const VISA_CATEGORY_OPTIONS = Object.values(VISA_CATEGORY).map((value) => ({
-  value,
-  label: VISA_CATEGORY_LABELS[value],
 }))
 
 export const FOLLOW_UP_METHOD = Object.freeze({
