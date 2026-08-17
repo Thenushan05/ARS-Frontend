@@ -6,6 +6,7 @@ import { ProtectedRoute } from './ProtectedRoute'
 import { PermissionRoute } from './PermissionRoute'
 import { ROUTES } from '@/constants/routes'
 import { MENU_ITEMS } from '@/constants/menuConfig'
+import { PERMISSIONS } from '@/constants/permissions'
 import { ComingSoonPage } from '@/components/common/ComingSoonPage'
 import { EmptyState } from '@/components/common/EmptyState'
 
@@ -14,11 +15,13 @@ import ForgotPasswordPage from '@/features/auth/pages/ForgotPasswordPage'
 import DashboardPage from '@/features/dashboard/pages/DashboardPage'
 import NotFoundPage from '@/features/dashboard/pages/NotFoundPage'
 import ForbiddenPage from '@/features/dashboard/pages/ForbiddenPage'
+import LeadListPage from '@/features/leads/pages/LeadListPage'
 
-// Every menu destination other than Dashboard is still a Phase 2+ feature
-// (§48) — rendered as a permission-gated placeholder until that phase
-// lands, so navigation and access control can be exercised end-to-end now.
-const PLACEHOLDER_ITEMS = MENU_ITEMS.filter((item) => item.key !== 'dashboard')
+// Every menu destination other than Dashboard and Leads is still a
+// Phase 2+ feature (§48) — rendered as a permission-gated placeholder
+// until that phase lands, so navigation and access control can be
+// exercised end-to-end now.
+const PLACEHOLDER_ITEMS = MENU_ITEMS.filter((item) => item.key !== 'dashboard' && item.key !== 'leads')
 
 /**
  * §49 route architecture, in one place:
@@ -38,6 +41,10 @@ export function AppRoutes() {
       <Route element={<ProtectedRoute />}>
         <Route element={<MainLayout />}>
           <Route index element={<DashboardPage />} />
+
+          <Route element={<PermissionRoute permission={PERMISSIONS.LEADS_VIEW} />}>
+            <Route path={ROUTES.LEADS} element={<LeadListPage />} />
+          </Route>
 
           {PLACEHOLDER_ITEMS.map(({ key, path, label, permission }) => (
             <Route key={key} element={<PermissionRoute permission={permission} />}>
