@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
-import { Bell, Search, LogOut, User as UserIcon, Shield, ChevronDown } from 'lucide-react';
+import { Bell, Search, LogOut, User as UserIcon, Shield, ChevronDown, Sun, Moon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { UserRole } from '../../types';
 
 interface NavbarProps {
   collapsed: boolean;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ collapsed }) => {
+export const Navbar: React.FC<NavbarProps> = () => {
   const { user, logout, switchRole } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showRoleSelector, setShowRoleSelector] = useState(false);
 
@@ -23,11 +25,7 @@ export const Navbar: React.FC<NavbarProps> = ({ collapsed }) => {
   ];
 
   return (
-    <header
-      className={`sticky top-0 z-30 h-16 bg-slate-950/80 backdrop-blur-md border-b border-slate-800/80 transition-all duration-300 ${
-        collapsed ? 'pl-20' : 'pl-64'
-      }`}
-    >
+    <header className="sticky top-0 z-30 h-16 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors duration-200">
       <div className="h-full px-6 flex items-center justify-between">
         {/* Quick Search */}
         <div className="relative w-72 hidden md:block">
@@ -35,27 +33,46 @@ export const Navbar: React.FC<NavbarProps> = ({ collapsed }) => {
           <input
             type="text"
             placeholder="Global search leads, cases, invoices..."
-            className="w-full pl-9 pr-4 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all"
+            className="w-full pl-9 pr-4 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200 placeholder-slate-400 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all"
           />
         </div>
 
         {/* Right Action Icons */}
-        <div className="flex items-center gap-4 ml-auto">
-          {/* Quick Role Switcher (For Demo & Testing Permission UI) */}
+        <div className="flex items-center gap-3 sm:gap-4 ml-auto">
+          {/* Theme Toggle Button */}
+          <button
+            onClick={toggleTheme}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-200 dark:hover:bg-slate-800 transition-all"
+            title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
+          >
+            {theme === 'light' ? (
+              <>
+                <Moon className="w-3.5 h-3.5 text-indigo-600" />
+                <span className="hidden sm:inline">Dark Theme</span>
+              </>
+            ) : (
+              <>
+                <Sun className="w-3.5 h-3.5 text-amber-400" />
+                <span className="hidden sm:inline">Light Theme</span>
+              </>
+            )}
+          </button>
+
+          {/* Quick Role Switcher */}
           <div className="relative">
             <button
               onClick={() => setShowRoleSelector(!showRoleSelector)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-500/30 bg-purple-950/40 text-purple-300 text-xs font-semibold hover:bg-purple-900/50 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-200 dark:border-purple-500/30 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-xs font-semibold hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-all"
               title="Test role permission view"
             >
-              <Shield className="w-3.5 h-3.5 text-purple-400" />
+              <Shield className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
               <span>Role: {user?.role}</span>
               <ChevronDown className="w-3 h-3 ml-0.5 opacity-70" />
             </button>
 
             {showRoleSelector && (
-              <div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-800 bg-slate-900 shadow-2xl p-2 z-50">
-                <p className="px-2 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              <div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-2 z-50">
+                <p className="px-2 py-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                   Switch Active Role (UI Demo)
                 </p>
                 <div className="space-y-1 mt-1">
@@ -68,8 +85,8 @@ export const Navbar: React.FC<NavbarProps> = ({ collapsed }) => {
                       }}
                       className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                         user?.role === r
-                          ? 'bg-sky-500/20 text-sky-400 font-bold'
-                          : 'text-slate-300 hover:bg-slate-800'
+                          ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold'
+                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                       }`}
                     >
                       {r}
@@ -81,16 +98,16 @@ export const Navbar: React.FC<NavbarProps> = ({ collapsed }) => {
           </div>
 
           {/* Notifications */}
-          <button className="relative p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-900 border border-transparent hover:border-slate-800 transition-all">
+          <button className="relative p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900 border border-transparent hover:border-slate-200 dark:hover:border-slate-800 transition-all">
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-sky-500 ring-4 ring-slate-950" />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-sky-500 ring-4 ring-white dark:ring-slate-950" />
           </button>
 
           {/* User Profile */}
           <div className="relative">
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-3 p-1 rounded-xl hover:bg-slate-900 transition-colors"
+              className="flex items-center gap-3 p-1 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-900 transition-colors"
             >
               <img
                 src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=250'}
@@ -98,20 +115,20 @@ export const Navbar: React.FC<NavbarProps> = ({ collapsed }) => {
                 className="w-9 h-9 rounded-xl object-cover ring-2 ring-sky-500/30"
               />
               <div className="hidden sm:flex flex-col text-left">
-                <span className="text-xs font-bold text-slate-200">{user?.name}</span>
-                <span className="text-[10px] text-slate-400">{user?.branch || 'Colombo Main'}</span>
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{user?.name}</span>
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">{user?.branch || 'Colombo Main'}</span>
               </div>
             </button>
 
             {showUserMenu && (
-              <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-800 bg-slate-900 shadow-2xl p-1.5 z-50">
-                <div className="px-3 py-2 border-b border-slate-800 mb-1">
-                  <p className="text-xs font-bold text-slate-200">{user?.name}</p>
-                  <p className="text-[10px] text-slate-400 truncate">{user?.email}</p>
+              <div className="absolute right-0 mt-2 w-48 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-1.5 z-50">
+                <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 mb-1">
+                  <p className="text-xs font-bold text-slate-800 dark:text-slate-200">{user?.name}</p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{user?.email}</p>
                 </div>
                 <button
                   onClick={logout}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-rose-400 hover:bg-rose-500/10 transition-colors"
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
                   <span>Sign Out</span>

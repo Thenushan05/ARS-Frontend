@@ -90,24 +90,24 @@ export const DashboardPage: React.FC = () => {
       {/* Analytics Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Cases by Country */}
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur-md">
-          <h3 className="text-sm font-bold text-slate-200 mb-4">Active Visa Cases by Country</h3>
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-5 shadow-xs">
+          <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-4">Active Visa Cases by Country</h3>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={casesByCountry}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="country" stroke="#94a3b8" fontSize={12} />
-                <YAxis stroke="#94a3b8" fontSize={12} />
-                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#f8fafc' }} />
-                <Bar dataKey="cases" fill="#38bdf8" radius={[6, 6, 0, 0]} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" strokeOpacity={0.5} />
+                <XAxis dataKey="country" stroke="#64748b" fontSize={12} />
+                <YAxis stroke="#64748b" fontSize={12} />
+                <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #cbd5e1' }} />
+                <Bar dataKey="cases" fill="#2563eb" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         {/* Leads by Source */}
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur-md">
-          <h3 className="text-sm font-bold text-slate-200 mb-4">Leads by Marketing Source</h3>
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-5 shadow-xs">
+          <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200 mb-4">Leads by Marketing Source</h3>
           <div className="h-64 flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -116,7 +116,7 @@ export const DashboardPage: React.FC = () => {
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#f8fafc' }} />
+                <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #cbd5e1' }} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
@@ -126,22 +126,22 @@ export const DashboardPage: React.FC = () => {
 
       {/* Protected Revenue & Expense Trend Chart */}
       <PermissionGuard permission="finance.profit.view">
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur-md space-y-4">
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-5 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-200">Financial Growth & Profit Margins (Monthly)</h3>
-            <span className="text-xs text-emerald-400 font-semibold">+31% Profit YoY</span>
+            <h3 className="text-sm font-bold text-slate-800 dark:text-slate-200">Financial Growth & Profit Margins (Monthly)</h3>
+            <span className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold">+31% Profit YoY</span>
           </div>
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={financialOverview}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="month" stroke="#94a3b8" />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', color: '#f8fafc' }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" strokeOpacity={0.5} />
+                <XAxis dataKey="month" stroke="#64748b" />
+                <YAxis stroke="#64748b" />
+                <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #cbd5e1' }} />
                 <Legend />
                 <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} name="Revenue (LKR)" />
                 <Line type="monotone" dataKey="expense" stroke="#f43f5e" strokeWidth={2} name="Expense (LKR)" />
-                <Line type="monotone" dataKey="profit" stroke="#a855f7" strokeWidth={3} name="Net Profit (LKR)" />
+                <Line type="monotone" dataKey="profit" stroke="#8b5cf6" strokeWidth={3} name="Net Profit (LKR)" />
               </LineChart>
             </ResponsiveContainer>
           </div>

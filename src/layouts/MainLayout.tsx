@@ -7,19 +7,20 @@ export const MainLayout: React.FC = () => {
   const [collapsed, setCollapsed] = useState<boolean>(false);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex font-sans transition-colors duration-200">
+      {/* Sidebar with Fixed Positioning */}
       <Sidebar collapsed={collapsed} onToggleCollapse={() => setCollapsed(!collapsed)} />
-      <Navbar collapsed={collapsed} />
 
-      <main
-        className={`flex-1 p-4 sm:p-6 lg:p-8 transition-all duration-300 ${
-          collapsed ? 'pl-20 sm:pl-24' : 'pl-64 sm:pl-72'
-        }`}
-      >
-        <div className="max-w-7xl mx-auto space-y-6">
-          <Outlet />
-        </div>
-      </main>
+      {/* Right Content Area Pushed Right by Sidebar Width */}
+      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${collapsed ? 'ml-20' : 'ml-64'}`}>
+        <Navbar collapsed={collapsed} />
+
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+          <div className="max-w-7xl mx-auto space-y-6">
+            <Outlet />
+          </div>
+        </main>
+      </div>
     </div>
   );
 };
