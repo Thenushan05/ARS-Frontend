@@ -805,14 +805,21 @@ export const bankingApi = {
       const res = await axiosInstance.post('/banking/transfer', t);
       return res.data;
     } catch {
+      const amt = t.amount || 10000;
+      const fromAcc = accountsStore.find(a => a.accountName === t.fromAccount || a.id === t.fromAccount);
+      const toAcc = accountsStore.find(a => a.accountName === t.toAccount || a.id === t.toAccount);
+
+      if (fromAcc) fromAcc.currentBalance -= amt;
+      if (toAcc) toAcc.currentBalance += amt;
+
       const newTrf: AccountTransfer = {
         id: `trf-${Date.now()}`,
         fromAccount: t.fromAccount || 'Cash in Hand',
-        toAccount: t.toAccount || 'Commercial Bank',
-        amount: t.amount || 10000,
-        date: t.date || new Date().toISOString().split('T')[0],
-        reference: t.reference || `REF-${Date.now()}`,
-        notes: t.notes
+        toAccount: t.toAccount || 'Commercial Bank - Operating Account',
+        amount: amt,
+        date: t.date || '2026-08-18',
+        reference: t.reference || `REF-TRF-${Math.floor(100 + Math.random() * 900)}`,
+        notes: t.notes || 'Internal Account Transfer'
       };
       transfersStore.unshift(newTrf);
       return mockDelay(newTrf);
