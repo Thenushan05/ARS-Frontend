@@ -963,5 +963,35 @@ export const documentsApi = {
     } catch {
       return mockDelay(docsStore);
     }
+  },
+  create: async (doc: Partial<DocumentItem>): Promise<DocumentItem> => {
+    try {
+      const res = await axiosInstance.post('/documents', doc);
+      return res.data;
+    } catch {
+      const newDoc: DocumentItem = {
+        id: `doc-${Date.now()}`,
+        fileName: doc.fileName || 'Client_Document.pdf',
+        documentType: doc.documentType || 'Passport',
+        customerName: doc.customerName || 'Walk-in Client',
+        caseId: doc.caseId || 'CAS-9002',
+        status: doc.status || 'Received',
+        uploadedDate: doc.uploadedDate || '2026-08-18',
+        uploadedBy: doc.uploadedBy || 'Thenushan Sritharan',
+        verifiedBy: doc.verifiedBy || undefined,
+        fileUrl: doc.fileUrl || '/uploads/sample_doc.pdf'
+      };
+      docsStore.unshift(newDoc);
+      return mockDelay(newDoc);
+    }
+  },
+  updateStatus: async (id: string, status: DocumentItem['status'], verifiedBy?: string): Promise<DocumentItem> => {
+    const idx = docsStore.findIndex(d => d.id === id);
+    if (idx !== -1) {
+      docsStore[idx].status = status;
+      if (verifiedBy) docsStore[idx].verifiedBy = verifiedBy;
+      return mockDelay(docsStore[idx]);
+    }
+    throw new Error('Document not found');
   }
 };
