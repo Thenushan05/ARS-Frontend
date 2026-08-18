@@ -3,7 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, UserCheck, FileText, Globe, DollarSign, 
   Receipt, FileSpreadsheet, Package, CreditCard, Landmark, Truck, 
-  Award, Shield, Calendar, CheckSquare, TrendingUp, Settings, 
+  Award, Shield, ShieldCheck, Calendar, CheckSquare, TrendingUp, Settings, 
   ChevronLeft, ChevronRight, Briefcase, FileCheck, Layers, PieChart
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -76,6 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse })
       items: [
         { label: 'Staff Management', path: '/staff', icon: Award, permission: 'staff.manage' },
         { label: 'Roles & Permissions', path: '/roles-permissions', icon: Shield, permission: 'settings.manage' },
+        { label: 'Security & Audit Logs', path: '/audit-logs', icon: ShieldCheck, permission: 'settings.manage' },
         { label: 'Reports & Analytics', path: '/reports', icon: PieChart, permission: 'reports.view' },
         { label: 'System Settings', path: '/settings', icon: Settings, permission: 'settings.manage' },
       ]

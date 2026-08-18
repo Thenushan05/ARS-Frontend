@@ -26,6 +26,7 @@ import StaffPage from '../features/staff/StaffPage';
 import ReportsPage from '../features/reports/ReportsPage';
 import SettingsPage from '../features/settings/SettingsPage';
 import RolesPermissionsPage from '../features/permissions/RolesPermissionsPage';
+import AuditLogsPage from '../features/security/AuditLogsPage';
 import CustomerLayout from '../layouts/CustomerLayout';
 import CustomerPortalPage from '../features/portal/CustomerPortalPage';
 import PermissionGuard from '../components/common/PermissionGuard';
@@ -165,6 +166,12 @@ export const AppRoutes: React.FC = () => {
         <Route path="roles-permissions" element={
           <PermissionGuard permission="settings.manage" fallback={<Navigate to="/dashboard" />}>
             <RolesPermissionsPage />
+          </PermissionGuard>
+        } />
+
+        <Route path="audit-logs" element={
+          <PermissionGuard permission="settings.manage" fallback={<Navigate to="/dashboard" />}>
+            <AuditLogsPage />
           </PermissionGuard>
         } />
       </Route>
