@@ -235,6 +235,9 @@ export interface Invoice {
   dueDate: string;
   status: InvoiceStatus;
   createdAt: string;
+  consultant?: string;
+  country?: string;
+  branch?: string;
 }
 
 export type PaymentType = 'Full Payment' | 'Advance' | 'Part Payment' | 'Installment' | 'Balance Payment';
