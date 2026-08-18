@@ -305,7 +305,7 @@ export interface Income {
 export interface Expense {
   id: string;
   expenseId: string;
-  category: 'Office' | 'Staff' | 'Marketing' | 'Visa Operations' | 'Other';
+  category: 'Office' | 'Staff' | 'Marketing' | 'Visa Operations' | 'Transport' | 'Other';
   subcategory: string;
   description: string;
   supplier?: string;

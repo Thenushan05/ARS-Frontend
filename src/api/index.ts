@@ -729,6 +729,27 @@ export const incomeApi = {
     } catch {
       return mockDelay(incomeStore);
     }
+  },
+  create: async (inc: Partial<Income>): Promise<Income> => {
+    try {
+      const res = await axiosInstance.post('/income', inc);
+      return res.data;
+    } catch {
+      const newInc: Income = {
+        id: `inc-${Date.now()}`,
+        transactionId: inc.transactionId || `INC-2026-${Math.floor(800 + Math.random() * 200)}`,
+        date: inc.date || '2026-08-18',
+        customerName: inc.customerName || 'Walk-in Client',
+        caseId: inc.caseId || 'Direct',
+        category: inc.category || 'Visa Service Income',
+        amount: inc.amount || 0,
+        paymentMethod: inc.paymentMethod || 'Bank Transfer',
+        account: inc.account || 'Commercial Bank Main Acc #1000234891',
+        source: inc.source || 'Direct Revenue'
+      };
+      incomeStore.unshift(newInc);
+      return mockDelay(newInc);
+    }
   }
 };
 
