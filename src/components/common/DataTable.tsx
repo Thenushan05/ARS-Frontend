@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Inbox, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { LoadingSkeleton } from './LoadingSkeleton';
 
 export interface Column<T> {
@@ -7,6 +7,7 @@ export interface Column<T> {
   header: string;
   render?: (row: T, index: number) => React.ReactNode;
   className?: string;
+  sortable?: boolean;
 }
 
 interface DataTableProps<T> {
@@ -20,6 +21,10 @@ interface DataTableProps<T> {
   onPageChange?: (page: number) => void;
   actions?: (row: T) => React.ReactNode;
   onRowClick?: (row: T) => void;
+  // Server-side Sorting & Filters
+  sortColumn?: string;
+  sortDirection?: 'asc' | 'desc';
+  onSort?: (columnKey: string) => void;
 }
 
 export function DataTable<T extends { id?: string | number }>({
@@ -32,27 +37,53 @@ export function DataTable<T extends { id?: string | number }>({
   totalRecords,
   onPageChange,
   actions,
-  onRowClick
+  onRowClick,
+  sortColumn,
+  sortDirection,
+  onSort
 }: DataTableProps<T>) {
+  // 44. UI STATES: Initial Loading / Skeleton Loader State
   if (isLoading) {
     return <LoadingSkeleton rows={5} />;
   }
 
   return (
-    <div className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/70 overflow-hidden shadow-xs">
+    <div className="w-full rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/70 overflow-hidden shadow-xs">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm text-slate-700 dark:text-slate-300 border-collapse">
-          <thead className="bg-slate-50 dark:bg-slate-950/80 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800">
+          <thead className="bg-slate-50 dark:bg-slate-950/80 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800 select-none">
             <tr>
-              {columns.map((col) => (
-                <th key={col.key} className={`px-4 py-3.5 ${col.className || ''}`}>
-                  {col.header}
-                </th>
-              ))}
+              {columns.map((col) => {
+                const isSorted = sortColumn === col.key;
+
+                return (
+                  <th 
+                    key={col.key} 
+                    onClick={() => col.sortable !== false && onSort && onSort(col.key)}
+                    className={`px-4 py-3.5 ${col.className || ''} ${col.sortable !== false && onSort ? 'cursor-pointer hover:text-slate-900 dark:hover:text-slate-100 transition-colors' : ''}`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>{col.header}</span>
+                      {col.sortable !== false && onSort && (
+                        isSorted ? (
+                          sortDirection === 'asc' ? (
+                            <ArrowUp className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
+                          ) : (
+                            <ArrowDown className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
+                          )
+                        ) : (
+                          <ArrowUpDown className="w-3.5 h-3.5 opacity-40 hover:opacity-100" />
+                        )
+                      )}
+                    </div>
+                  </th>
+                );
+              })}
               {actions && <th className="px-4 py-3.5 text-right">Actions</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+            {/* 44. UI STATES: Empty Result State */}
             {data.length === 0 ? (
               <tr>
                 <td colSpan={columns.length + (actions ? 1 : 0)} className="py-12 text-center text-slate-400 dark:text-slate-500">
@@ -63,6 +94,7 @@ export function DataTable<T extends { id?: string | number }>({
                 </td>
               </tr>
             ) : (
+              /* 44. UI STATES: Success State Data Rendering */
               data.map((row, idx) => (
                 <tr
                   key={row.id || idx}
@@ -88,7 +120,7 @@ export function DataTable<T extends { id?: string | number }>({
         </table>
       </div>
 
-      {/* Pagination Bar */}
+      {/* Server-Side Pagination Bar */}
       {onPageChange && totalPages > 1 && (
         <div className="flex items-center justify-between px-4 py-3 bg-slate-50/60 dark:bg-slate-950/40 border-t border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
           <div>
