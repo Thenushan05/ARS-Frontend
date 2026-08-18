@@ -191,6 +191,9 @@ export interface PackageItem {
   finalPrice: number;
   status: 'Active' | 'Inactive';
   discountReason?: string;
+  discountType?: 'percentage' | 'amount';
+  discountValue?: number;
+  authorizedBy?: string;
   // Guarded fields
   internalCost?: number;
   estimatedProfit?: number;

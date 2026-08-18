@@ -511,13 +511,42 @@ export const packagesApi = {
         packagePrice: pkg.packagePrice || 85000,
         discount: pkg.discount || 15000,
         finalPrice: pkg.finalPrice || 85000,
-        status: 'Active',
+        status: pkg.status || 'Active',
         discountReason: pkg.discountReason,
+        discountType: pkg.discountType,
+        discountValue: pkg.discountValue,
+        authorizedBy: pkg.authorizedBy,
         internalCost: pkg.internalCost,
         estimatedProfit: pkg.estimatedProfit
       };
       packageStore.unshift(newPkg);
       return mockDelay(newPkg);
+    }
+  },
+  update: async (id: string, updates: Partial<PackageItem>): Promise<PackageItem> => {
+    try {
+      const res = await axiosInstance.patch(`/packages/${id}`, updates);
+      return res.data;
+    } catch {
+      const idx = packageStore.findIndex(p => p.id === id);
+      if (idx !== -1) {
+        packageStore[idx] = { ...packageStore[idx], ...updates };
+        return mockDelay(packageStore[idx]);
+      }
+      throw new Error('Package not found');
+    }
+  },
+  toggleStatus: async (id: string): Promise<PackageItem> => {
+    try {
+      const res = await axiosInstance.patch(`/packages/${id}/toggle-status`);
+      return res.data;
+    } catch {
+      const idx = packageStore.findIndex(p => p.id === id);
+      if (idx !== -1) {
+        packageStore[idx].status = packageStore[idx].status === 'Active' ? 'Inactive' : 'Active';
+        return mockDelay(packageStore[idx]);
+      }
+      throw new Error('Package not found');
     }
   }
 };
