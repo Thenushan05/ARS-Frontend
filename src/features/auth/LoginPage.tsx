@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Eye, EyeOff, Lock, Mail, ArrowRight, ShieldCheck, AlertCircle, 
-  Loader2, CheckCircle2, KeyRound, Sparkles
+  Loader2, CheckCircle2, KeyRound, Sparkles, UserCheck
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import FormModal from '../../components/modals/FormModal';
@@ -231,6 +231,15 @@ export const LoginPage: React.FC = () => {
                 <span className="text-[9px] font-mono opacity-70">staff@</span>
               </button>
             </div>
+            
+            <button
+              type="button"
+              onClick={() => navigate('/portal')}
+              className="w-full px-3 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-bold transition-all text-xs flex items-center justify-center gap-2 shadow-md hover:from-blue-500 hover:to-indigo-600 mt-2"
+            >
+              <UserCheck className="w-4 h-4" />
+              <span>Customer Portal Demo (Sanduni De Silva)</span>
+            </button>
           </div>
         </div>
 

@@ -8,6 +8,7 @@ import CustomersPage from '../features/customers/CustomersPage';
 import VisaCasesPage from '../features/visaCases/VisaCasesPage';
 import EVisaPage from '../features/eVisa/EVisaPage';
 import DocumentsPage from '../features/documents/DocumentsPage';
+import DecisionsPage from '../features/visas/DecisionsPage';
 import TasksPage from '../features/tasks/TasksPage';
 import AppointmentsPage from '../features/appointments/AppointmentsPage';
 import PricingPage from '../features/pricing/PricingPage';
@@ -25,12 +26,19 @@ import StaffPage from '../features/staff/StaffPage';
 import ReportsPage from '../features/reports/ReportsPage';
 import SettingsPage from '../features/settings/SettingsPage';
 import RolesPermissionsPage from '../features/permissions/RolesPermissionsPage';
+import CustomerLayout from '../layouts/CustomerLayout';
+import CustomerPortalPage from '../features/portal/CustomerPortalPage';
 import PermissionGuard from '../components/common/PermissionGuard';
 
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+
+      {/* Customer Portal Layout & Route */}
+      <Route path="/portal" element={<CustomerLayout />}>
+        <Route index element={<CustomerPortalPage />} />
+      </Route>
 
       <Route path="/" element={<MainLayout />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
@@ -51,6 +59,12 @@ export const AppRoutes: React.FC = () => {
         <Route path="visa-cases" element={
           <PermissionGuard permission="visa.view" fallback={<Navigate to="/dashboard" />}>
             <VisaCasesPage />
+          </PermissionGuard>
+        } />
+
+        <Route path="visa-decisions" element={
+          <PermissionGuard permission="visa.view" fallback={<Navigate to="/dashboard" />}>
+            <DecisionsPage />
           </PermissionGuard>
         } />
 

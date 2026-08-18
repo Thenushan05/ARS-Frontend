@@ -45,6 +45,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse })
       groupName: 'Visa Operations',
       items: [
         { label: 'Visa Cases', path: '/visa-cases', icon: Briefcase, permission: 'visa.view' },
+        { label: 'Visa Decisions', path: '/visa-decisions', icon: Award, permission: 'visa.view' },
         { label: 'e-Visa Catalog', path: '/evisa', icon: Globe, permission: 'evisa.view' },
         { label: 'Document Vault', path: '/documents', icon: FileCheck },
       ]

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Plus, User, Phone, Mail, FileText, CreditCard, Calendar, Briefcase, Activity, 
-  Shield, Globe, CheckCircle2, AlertCircle, Edit3, Trash2
+  Shield, Globe, CheckCircle2, AlertCircle, Edit3, Trash2, ExternalLink
 } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import DataTable, { Column } from '../../components/common/DataTable';
@@ -17,6 +18,7 @@ import { customersApi, visaCasesApi } from '../../api';
 import CurrencyDisplay from '../../components/common/CurrencyDisplay';
 
 export const CustomersPage: React.FC = () => {
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -227,6 +229,18 @@ export const CustomersPage: React.FC = () => {
               className="px-3 py-1 rounded-lg bg-blue-50 dark:bg-sky-500/15 text-blue-600 dark:text-sky-400 border border-blue-200 dark:border-sky-500/30 text-xs font-semibold hover:bg-blue-100 dark:hover:bg-sky-500/25 transition-all"
             >
               View 360 Profile
+            </button>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate('/portal');
+              }}
+              className="px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 text-xs font-semibold hover:bg-purple-100 transition-all flex items-center gap-1"
+              title="Preview Customer Portal View"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Customer Portal</span>
             </button>
 
             <PermissionGuard permission="customer.edit">

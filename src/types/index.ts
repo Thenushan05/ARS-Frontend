@@ -5,7 +5,8 @@ export type UserRole =
   | 'Visa Consultant'
   | 'Customer Service'
   | 'Accountant'
-  | 'Marketing Staff';
+  | 'Marketing Staff'
+  | 'Customer';
 
 export type Permission =
   | 'lead.view' | 'lead.create' | 'lead.edit' | 'lead.delete' | 'lead.convert'

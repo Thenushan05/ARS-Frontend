@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   FileCheck, Upload, Download, Eye, CheckCircle2, XCircle, 
-  Search, Filter, FileText, ShieldCheck, Clock, AlertCircle, Lock, User, Calendar
+  Search, Filter, FileText, ShieldCheck, Clock, AlertCircle, Lock, User, Calendar, Folder
 } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import DataTable, { Column } from '../../components/common/DataTable';
@@ -67,6 +67,7 @@ export const DocumentsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('All');
   const [selectedStatus, setSelectedStatus] = useState<string>('All');
+  const [selectedCustomerFilter, setSelectedCustomerFilter] = useState<string>('All');
 
   // Modals
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -90,7 +91,11 @@ export const DocumentsPage: React.FC = () => {
         customersApi.getAll()
       ]);
       setDocuments(docData);
-      setCustomers(Array.isArray(custRes) ? custRes : (custRes as any).items || []);
+      const custItems = Array.isArray(custRes) ? custRes : (custRes as any).items || [];
+      setCustomers(custItems);
+      if (custItems.length > 0 && !uploadCustomerName) {
+        setUploadCustomerName(custItems[0].name);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -112,6 +117,10 @@ export const DocumentsPage: React.FC = () => {
       result = result.filter(d => d.status === selectedStatus);
     }
 
+    if (selectedCustomerFilter !== 'All') {
+      result = result.filter(d => d.customerName === selectedCustomerFilter);
+    }
+
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       result = result.filter(d => 
@@ -123,7 +132,7 @@ export const DocumentsPage: React.FC = () => {
     }
 
     setFilteredDocs(result);
-  }, [documents, selectedType, selectedStatus, searchTerm]);
+  }, [documents, selectedType, selectedStatus, selectedCustomerFilter, searchTerm]);
 
   // Handle Verification Action
   const handleVerifyStatus = async (id: string, newStatus: DocStatus) => {
@@ -152,13 +161,12 @@ export const DocumentsPage: React.FC = () => {
         uploadedBy: 'Thenushan Sritharan'
       });
 
-      setNotification(`Document "${created.fileName}" uploaded to vault successfully!`);
+      setNotification(`Document "${created.fileName}" uploaded for customer "${created.customerName}" successfully!`);
       setTimeout(() => setNotification(null), 5000);
       setIsUploadModalOpen(false);
       fetchDocs();
 
       setUploadFileName('');
-      setUploadCustomerName('');
     } catch {
       alert('Error uploading document.');
     }
@@ -169,6 +177,11 @@ export const DocumentsPage: React.FC = () => {
   const verifiedCount = documents.filter(d => d.status === 'Verified').length;
   const pendingVerifyCount = documents.filter(d => d.status === 'Received' || d.status === 'Requested').length;
   const requiredCount = documents.filter(d => d.status === 'Required' || d.status === 'Rejected').length;
+
+  // Documents belonging to current preview customer
+  const clientDocs = previewDoc 
+    ? documents.filter(d => d.customerName.toLowerCase() === previewDoc.customerName.toLowerCase())
+    : [];
 
   // 8 Required Columns
   const columns: Column<DocumentItem>[] = [
@@ -187,7 +200,7 @@ export const DocumentsPage: React.FC = () => {
     },
     { 
       key: 'documentType', 
-      header: '2. Document Type (14 Types)', 
+      header: '2. Document Type', 
       render: (d) => (
         <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 whitespace-nowrap">
           {d.documentType}
@@ -212,7 +225,7 @@ export const DocumentsPage: React.FC = () => {
     },
     { 
       key: 'status', 
-      header: '5. Status (6 Types)', 
+      header: '5. Status', 
       render: (d) => {
         if (d.status === 'Verified') return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">Verified</span>;
         if (d.status === 'Received') return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-300">Received</span>;
@@ -253,7 +266,7 @@ export const DocumentsPage: React.FC = () => {
       <div className="no-print space-y-6">
         <PageHeader
           title="Document Management Vault"
-          subtitle="Centralized client document repository with 14 document categories and verification workflow."
+          subtitle="Centralized client document repository with registered customer filtering and verification workflow."
           breadcrumbs={[{ label: 'Document Vault' }]}
           actions={
             <PermissionGuard permission="visa.update">
@@ -284,17 +297,33 @@ export const DocumentsPage: React.FC = () => {
           <StatCard title="Action Required" value={requiredCount} icon={AlertCircle} colorScheme="rose" subtitle="missing or rejected" />
         </div>
 
-        {/* Search & 2 Filters Bar */}
+        {/* Search & 3 Filters Bar */}
         <div className="flex flex-col lg:flex-row gap-4 justify-between items-center bg-white dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
           <SearchInput 
             value={searchTerm} 
             onChange={setSearchTerm} 
             placeholder="Search by File Name, Customer, Case ID, or Uploaded By..." 
-            className="w-full lg:w-80" 
+            className="w-full lg:w-72" 
           />
 
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto text-xs">
-            {/* 1. Document Type Filter (14 Categories) */}
+            {/* Registered Customer Filter */}
+            <div className="flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-blue-600" />
+              <span className="font-bold text-slate-600 dark:text-slate-400">Customer:</span>
+              <select
+                value={selectedCustomerFilter}
+                onChange={(e) => setSelectedCustomerFilter(e.target.value)}
+                className="px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-bold focus:outline-none focus:border-blue-500 max-w-[180px]"
+              >
+                <option value="All">All Registered Customers</option>
+                {customers.map(c => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Document Type Filter (14 Categories) */}
             <div className="flex items-center gap-1.5">
               <Filter className="w-3.5 h-3.5 text-slate-400" />
               <span className="font-bold text-slate-600 dark:text-slate-400">Type:</span>
@@ -310,7 +339,7 @@ export const DocumentsPage: React.FC = () => {
               </select>
             </div>
 
-            {/* 2. Verification Status Filter (6 Statuses) */}
+            {/* Verification Status Filter (6 Statuses) */}
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-slate-600 dark:text-slate-400">Status:</span>
               <select
@@ -338,7 +367,7 @@ export const DocumentsPage: React.FC = () => {
             <button
               onClick={() => setPreviewDoc(d)}
               className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-sky-500/15 text-blue-600 dark:text-sky-400 border border-blue-200 text-xs font-semibold hover:bg-blue-100 flex items-center gap-1 transition-all"
-              title="Preview & Verify Document"
+              title="Preview & Inspect All Customer Documents"
             >
               <Eye className="w-3.5 h-3.5" />
               <span>Preview</span>
@@ -347,69 +376,110 @@ export const DocumentsPage: React.FC = () => {
         />
       </div>
 
-      {/* Document Preview & Verification Modal */}
+      {/* Document Preview & All Client Documents Modal */}
       {previewDoc && (
         <FormModal
           isOpen={!!previewDoc}
           onClose={() => setPreviewDoc(null)}
           title={`Document Vault File — ${previewDoc.fileName}`}
           subtitle={`Client: ${previewDoc.customerName} | Case: ${previewDoc.caseId || 'General Vault'}`}
-          maxWidth="xl"
+          maxWidth="2xl"
         >
-          <div className="space-y-4 text-xs">
-            {/* Metadata Summary */}
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 grid grid-cols-2 gap-3">
-              <div><span className="text-slate-500 font-bold block">Document Category:</span> <span className="font-bold text-purple-600">{previewDoc.documentType}</span></div>
-              <div><span className="text-slate-500 font-bold block">Status:</span> <StatusBadge status={previewDoc.status} /></div>
-              <div><span className="text-slate-500 font-bold block">Uploaded Date:</span> <span className="font-mono text-slate-800">{previewDoc.uploadedDate || '2026-08-18'}</span></div>
-              <div><span className="text-slate-500 font-bold block">Uploaded By:</span> <span className="font-semibold text-slate-800">{previewDoc.uploadedBy || 'Client Direct'}</span></div>
-              <div><span className="text-slate-500 font-bold block">Verification Officer:</span> <span className="font-bold text-emerald-600">{previewDoc.verifiedBy || 'Not Verified Yet'}</span></div>
-              <div><span className="text-slate-500 font-bold block">File Format:</span> <span className="font-mono text-slate-800">PDF Document (1.4 MB)</span></div>
-            </div>
-
-            {/* Document Preview Frame */}
-            <div className="p-8 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-center space-y-3">
-              <FileText className="w-12 h-12 text-blue-600 mx-auto" />
-              <div className="space-y-1">
-                <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">{previewDoc.fileName}</p>
-                <p className="text-slate-500 text-xs">Certified PDF Vault Document</p>
+          <div className="space-y-6 text-xs">
+            {/* Active Document Metadata & Preview */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Metadata Summary */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="flex justify-between"><span className="text-slate-500 font-bold">Document Type:</span> <span className="font-bold text-purple-600">{previewDoc.documentType}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500 font-bold">Status:</span> <StatusBadge status={previewDoc.status} /></div>
+                <div className="flex justify-between"><span className="text-slate-500 font-bold">Uploaded Date:</span> <span className="font-mono text-slate-800">{previewDoc.uploadedDate || '2026-08-18'}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500 font-bold">Uploaded By:</span> <span className="font-semibold text-slate-800">{previewDoc.uploadedBy || 'Client Direct'}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500 font-bold">Verification Officer:</span> <span className="font-bold text-emerald-600">{previewDoc.verifiedBy || 'Not Verified Yet'}</span></div>
               </div>
-              <div className="flex justify-center gap-3 pt-2">
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    alert(`Downloading ${previewDoc.fileName}...`);
-                  }}
-                  className="px-4 py-2 rounded-xl bg-blue-600 text-white font-bold flex items-center gap-1.5 hover:bg-blue-500"
+
+              {/* Document File Preview */}
+              <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-center space-y-2 flex flex-col justify-center items-center">
+                <FileText className="w-8 h-8 text-blue-600" />
+                <div>
+                  <p className="font-bold text-slate-900 dark:text-slate-100 text-xs truncate max-w-[200px]">{previewDoc.fileName}</p>
+                  <p className="text-slate-500 text-[10px]">Certified PDF Vault File</p>
+                </div>
+                <button
+                  onClick={() => alert(`Downloading ${previewDoc.fileName}...`)}
+                  className="px-3 py-1.5 rounded-lg bg-blue-600 text-white font-bold text-xs flex items-center gap-1.5 hover:bg-blue-500"
                 >
-                  <Download className="w-4 h-4" />
+                  <Download className="w-3.5 h-3.5" />
                   <span>Download PDF</span>
-                </a>
+                </button>
               </div>
             </div>
 
             {/* Verification Controls */}
-            <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex justify-between items-center">
+            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex justify-between items-center">
               <div>
                 <span className="font-bold text-emerald-900 block">Verification Action</span>
-                <span className="text-emerald-700 text-[11px]">Mark document compliance status after inspecting pages</span>
+                <span className="text-emerald-700 text-[11px]">Inspect pages and update compliance status</span>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => handleVerifyStatus(previewDoc.id, 'Verified')}
-                  className="px-4 py-2 rounded-xl bg-emerald-600 text-white font-bold flex items-center gap-1 shadow-sm hover:bg-emerald-500"
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs flex items-center gap-1 shadow-sm hover:bg-emerald-500"
                 >
-                  <CheckCircle2 className="w-4 h-4" />
+                  <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Mark Verified</span>
                 </button>
                 <button
                   onClick={() => handleVerifyStatus(previewDoc.id, 'Rejected')}
-                  className="px-4 py-2 rounded-xl bg-rose-600 text-white font-bold flex items-center gap-1 shadow-sm hover:bg-rose-500"
+                  className="px-3.5 py-1.5 rounded-xl bg-rose-600 text-white font-bold text-xs flex items-center gap-1 shadow-sm hover:bg-rose-500"
                 >
-                  <XCircle className="w-4 h-4" />
+                  <XCircle className="w-3.5 h-3.5" />
                   <span>Reject Document</span>
                 </button>
+              </div>
+            </div>
+
+            {/* ALL DOCUMENTS BELONGING TO THIS CUSTOMER */}
+            <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <div className="flex justify-between items-center">
+                <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs flex items-center gap-2">
+                  <Folder className="w-4 h-4 text-blue-600" />
+                  <span>All Vault Documents for Customer ({previewDoc.customerName})</span>
+                </h4>
+                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                  {clientDocs.length} Total Files
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[180px] overflow-y-auto pr-1">
+                {clientDocs.map((doc) => {
+                  const isCurrent = doc.id === previewDoc.id;
+
+                  return (
+                    <div 
+                      key={doc.id}
+                      onClick={() => setPreviewDoc(doc)}
+                      className={`p-2.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
+                        isCurrent 
+                          ? 'bg-blue-50 dark:bg-blue-950 border-blue-400 dark:border-blue-700 shadow-xs' 
+                          : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-blue-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className={`w-4 h-4 shrink-0 ${isCurrent ? 'text-blue-600' : 'text-slate-400'}`} />
+                        <div className="min-w-0">
+                          <p className={`font-bold text-xs truncate ${isCurrent ? 'text-blue-700 dark:text-blue-300' : 'text-slate-900 dark:text-slate-100'}`}>
+                            {doc.fileName}
+                          </p>
+                          <p className="text-[10px] text-slate-500 font-semibold">{doc.documentType}</p>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <StatusBadge status={doc.status} />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -425,29 +495,36 @@ export const DocumentsPage: React.FC = () => {
         </FormModal>
       )}
 
-      {/* Upload New Client Document Modal */}
+      {/* Upload New Client Document Modal (Registered Customer Dropdown) */}
       {isUploadModalOpen && (
         <FormModal
           isOpen={isUploadModalOpen}
           onClose={() => setIsUploadModalOpen(false)}
           title="Upload Client Document to Vault"
-          subtitle="Add client certificates, bank statements, or passports to the 14 vault categories"
+          subtitle="Select registered customer to upload passports, bank statements, or SOPs"
           maxWidth="lg"
         >
           <form onSubmit={handleUploadSubmit} className="space-y-4 text-xs">
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Target Customer <span className="text-rose-500">*</span>
+                Select Registered Customer <span className="text-rose-500">*</span>
               </label>
               <select
                 required
                 value={uploadCustomerName}
-                onChange={(e) => setUploadCustomerName(e.target.value)}
+                onChange={(e) => {
+                  setUploadCustomerName(e.target.value);
+                  const selectedCust = customers.find(c => c.name === e.target.value);
+                  if (selectedCust) {
+                    setUploadCaseId('CAS-9002');
+                  }
+                }}
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-bold focus:outline-none focus:border-blue-500"
               >
-                <option value="">-- Select Customer --</option>
                 {customers.map(c => (
-                  <option key={c.id} value={c.name}>{c.name} ({c.customerId})</option>
+                  <option key={c.id} value={c.name}>
+                    {c.name} ({c.customerId}) — {c.phone || 'Registered Client'}
+                  </option>
                 ))}
               </select>
             </div>
