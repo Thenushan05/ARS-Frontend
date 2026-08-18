@@ -51,24 +51,59 @@ html.dark ::-webkit-scrollbar-thumb:hover {
 
 /* Print Styles for Invoices, Quotations, and Receipts */
 @media print {
-  body {
-    background-color: #ffffff !important;
-    color: #000000 !important;
+  @page {
+    margin: 10mm 15mm;
+    size: A4 portrait;
   }
 
-  .no-print {
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Hide navigation, sidebar, headers, main list views, backdrop overlays, and action buttons */
+  aside, nav, header, .sidebar, .navbar, .no-print, button, .form-modal-header, .form-modal-close {
     display: none !important;
   }
 
-  .print-only {
-    display: block !important;
+  /* Force layout container to zero left-margin (removes sidebar offset) */
+  body, #root, main, div {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
   }
 
-  .print-card {
+  /* Reset modal containers so content flows naturally for printing */
+  .fixed, [role="dialog"] {
+    position: static !important;
+    inset: auto !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
     box-shadow: none !important;
-    border: 1px solid #e2e8f0 !important;
-    color: #000000 !important;
+    border: none !important;
+    overflow: visible !important;
+    max-height: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Ensure print-card is fully visible and spans 100% A4 width */
+  .print-card {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
     background: #ffffff !important;
+    color: #000000 !important;
+    border-radius: 0 !important;
   }
 }
 

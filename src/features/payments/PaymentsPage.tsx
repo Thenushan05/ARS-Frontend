@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Plus, CreditCard, Receipt as ReceiptIcon, FileCheck, CheckCircle2, 
-  Search, Filter, Printer, Share2, Download, Upload, Check, Building2, User, FileText, Eye, UserPlus
+  Search, Filter, Printer, Share2, Download, Upload, Check, Building2, User, FileText, Eye, UserPlus, ShieldCheck
 } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import DataTable, { Column } from '../../components/common/DataTable';
@@ -519,7 +519,40 @@ export const PaymentsPage: React.FC = () => {
           title="Payment Successfully Recorded — Official Receipt Issued"
           maxWidth="lg"
         >
-          <div className="space-y-6 text-xs">
+          <div className="space-y-4 text-xs">
+            {/* Top Fixed / Sticky Action Bar (Hidden during printing) */}
+            <div className="no-print sticky -top-6 z-30 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between shadow-md mb-2">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                  Payment Verified — {generatedReceipt.receiptNumber}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 rounded-xl bg-[#6b3a69] hover:bg-[#582e56] text-white font-bold text-xs flex items-center gap-2 shadow-md transition-all active:scale-95"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print Receipt</span>
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-2 shadow-md transition-all active:scale-95"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download PDF</span>
+                </button>
+                <button
+                  onClick={() => setGeneratedReceipt(null)}
+                  className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-semibold text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
             {/* Success Banner */}
             <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-center space-y-1">
               <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-md">
@@ -531,68 +564,75 @@ export const PaymentsPage: React.FC = () => {
               </p>
             </div>
 
-            {/* Official Receipt Document Card */}
-            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-lg text-slate-900 space-y-4 font-sans">
-              <div className="flex justify-between items-start border-b border-slate-200 pb-3">
+            {/* Custom Template Receipt Card (Matching User Image Template) */}
+            <div className="space-y-5 print-card p-8 bg-white border border-slate-200 shadow-2xl text-slate-900 font-sans text-xs rounded-2xl">
+              {/* Company Info & Emblem */}
+              <div className="flex justify-between items-start">
+                <div className="space-y-0.5">
+                  <h2 className="text-xs font-bold text-slate-800">ARS Visa & Consultants Inc.</h2>
+                  <p className="text-slate-500 text-[11px]">Level 12, Access Towers 1, 278 Union Place</p>
+                  <p className="text-slate-500 text-[11px]">Colombo 02, Sri Lanka | +94 11 234 5678</p>
+                </div>
+
+                <div className="p-2 px-4 rounded-xl border border-purple-200 bg-purple-50/50 flex items-center gap-2">
+                  <div className="w-5 h-5 rounded bg-[#6b3a69] text-white flex items-center justify-center font-black text-[10px]">A</div>
+                  <span className="font-bold text-[#6b3a69] text-xs">ARS VISA</span>
+                </div>
+              </div>
+
+              {/* Big RECEIPT Title */}
+              <div className="text-right">
+                <h1 className="text-2xl font-black tracking-widest text-[#6b3a69] uppercase">RECEIPT</h1>
+              </div>
+
+              {/* Billed To & Metadata */}
+              <div className="grid grid-cols-2 gap-4 items-start text-xs">
                 <div>
-                  <div className="font-black text-lg text-blue-900 tracking-tight">ARS VISA & CONSULTANTS</div>
-                  <p className="text-[10px] text-slate-500">Access Towers, Colombo 02 | Hotline: +94 11 234 5678</p>
+                  <p className="font-bold text-[#6b3a69] text-xs mb-0.5">Billed To</p>
+                  <p className="font-bold text-slate-900">{generatedReceipt.customerName}</p>
+                  <p className="text-slate-500 text-[11px]">12/A, Kandy Road, Kiribathgoda</p>
                 </div>
-                <div className="text-right">
-                  <span className="font-mono font-bold text-xs text-blue-600">{generatedReceipt.receiptNumber}</span>
-                  <p className="text-[10px] text-slate-500">Date: {generatedReceipt.date}</p>
+
+                <div className="space-y-0.5 text-right text-xs">
+                  <div className="flex justify-end gap-4"><span className="font-bold text-[#6b3a69]">Receipt #</span> <span className="font-mono text-slate-900 font-bold">{generatedReceipt.receiptNumber}</span></div>
+                  <div className="flex justify-end gap-4"><span className="font-bold text-[#6b3a69]">Receipt date</span> <span className="text-slate-900">{generatedReceipt.date}</span></div>
+                  <div className="flex justify-end gap-4"><span className="font-bold text-[#6b3a69]">Method</span> <span className="text-slate-900">{generatedReceipt.paymentMethod}</span></div>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Received From:</span>
-                  <span className="font-bold text-slate-900">{generatedReceipt.customerName}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Payment Reference:</span>
-                  <span className="font-mono text-purple-600 font-bold">{generatedReceipt.paymentId}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Payment For:</span>
-                  <span className="font-semibold text-slate-800">{generatedReceipt.paymentFor}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Method / Account:</span>
-                  <span className="text-slate-800">{generatedReceipt.paymentMethod}</span>
-                </div>
-                <div className="flex justify-between pt-2 border-t border-slate-200 text-sm">
-                  <span className="font-bold text-slate-900">Total Amount Received:</span>
-                  <span className="font-mono font-black text-emerald-600 text-base">LKR {generatedReceipt.amountReceived.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Receipt Actions */}
-            <div className="flex flex-wrap items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-800 gap-2">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => window.print()}
-                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>Print Receipt</span>
-                </button>
-                <button
-                  onClick={() => window.print()}
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Download PDF</span>
-                </button>
+              {/* Line Items Table */}
+              <div>
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-[#6b3a69] text-white font-bold text-[11px] uppercase">
+                      <th className="py-2 px-3 w-12 text-center">QTY</th>
+                      <th className="py-2 px-3">Description</th>
+                      <th className="py-2 px-3 text-right">Unit Price</th>
+                      <th className="py-2 px-3 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    <tr>
+                      <td className="py-2.5 px-3 text-center text-slate-700 font-medium">1</td>
+                      <td className="py-2.5 px-3 font-semibold text-slate-900">{generatedReceipt.paymentFor}</td>
+                      <td className="py-2.5 px-3 text-right font-mono text-slate-700">{generatedReceipt.amountReceived.toLocaleString()}.00</td>
+                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900">{generatedReceipt.amountReceived.toLocaleString()}.00</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div className="h-0.5 bg-[#6b3a69]" />
               </div>
 
-              <button
-                onClick={() => setGeneratedReceipt(null)}
-                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs"
-              >
-                Close View
-              </button>
+              {/* Financial Totals Breakdown */}
+              <div className="flex justify-end pt-1">
+                <div className="w-60 space-y-1 text-right text-xs">
+                  <div className="flex justify-between text-slate-600"><span>Subtotal</span><span className="font-mono text-slate-800 font-semibold">LKR {generatedReceipt.amountReceived.toLocaleString()}.00</span></div>
+                  <div className="flex justify-between font-bold text-[#6b3a69] text-xs py-1.5 border-t-2 border-b-2 border-[#6b3a69]">
+                    <span>Total Paid (LKR)</span>
+                    <span className="font-mono font-black">LKR {generatedReceipt.amountReceived.toLocaleString()}.00</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </FormModal>
