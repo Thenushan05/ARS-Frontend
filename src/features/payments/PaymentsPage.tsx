@@ -1,233 +1,708 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, CreditCard, Receipt as ReceiptIcon, FileCheck, CheckCircle2 } from 'lucide-react';
+import { 
+  Plus, CreditCard, Receipt as ReceiptIcon, FileCheck, CheckCircle2, 
+  Search, Filter, Printer, Share2, Download, Upload, Check, Building2, User, FileText, Eye, UserPlus
+} from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import DataTable, { Column } from '../../components/common/DataTable';
 import StatusBadge from '../../components/common/StatusBadge';
 import CurrencyDisplay from '../../components/common/CurrencyDisplay';
+import SearchInput from '../../components/common/SearchInput';
 import FormModal from '../../components/modals/FormModal';
-import { Payment, PaymentType, PaymentMethod, Receipt } from '../../types';
-import { paymentsApi } from '../../api';
+import PermissionGuard from '../../components/common/PermissionGuard';
+import { CustomerRegistrationModal } from '../../components/modals/CustomerRegistrationModal';
+import { Payment, PaymentType, PaymentMethod, Receipt, Invoice, Customer } from '../../types';
+import { paymentsApi, invoicesApi, customersApi } from '../../api';
+import { useAuth } from '../../context/AuthContext';
 
 export const PaymentsPage: React.FC = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [methodFilter, setMethodFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const { user } = useAuth();
+
+  // Receipt & Payment Modals state
+  const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [generatedReceipt, setGeneratedReceipt] = useState<Receipt | null>(null);
+  const [viewingPayment, setViewingPayment] = useState<Payment | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isCustomerRegOpen, setIsCustomerRegOpen] = useState(false);
+
+  // Notification Toast
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
+
+  // All 5 Payment Types
+  const paymentTypes: PaymentType[] = [
+    'Full Payment',
+    'Advance',
+    'Part Payment',
+    'Installment',
+    'Balance Payment'
+  ];
+
+  // All 5 Payment Methods
+  const paymentMethods: PaymentMethod[] = [
+    'Cash',
+    'Bank Transfer',
+    'Card',
+    'Online',
+    'Other'
+  ];
 
   // Payment Form State
-  const [invoiceNumber, setInvoiceNumber] = useState('INV-2026-0501');
-  const [customerName, setCustomerName] = useState('Sanduni De Silva');
-  const [amount, setAmount] = useState(65000);
-  const [type, setType] = useState<PaymentType>('Balance Payment');
-  const [method, setMethod] = useState<PaymentMethod>('Bank Transfer');
-  const [account, setAccount] = useState('Commercial Bank - 1000234891');
-  const [notes, setNotes] = useState('Final balance payment for France package.');
+  const [formData, setFormData] = useState({
+    invoiceNumber: '',
+    customerId: '',
+    customerName: 'Sanduni De Silva',
+    amount: 50000,
+    type: 'Part Payment' as PaymentType,
+    method: 'Bank Transfer' as PaymentMethod,
+    account: 'Commercial Bank ARS Main - 1000234891',
+    bankReference: 'TXN-9082341',
+    date: new Date().toISOString().split('T')[0],
+    notes: 'Advance deposit for Schengen visa processing.',
+    proofFileName: ''
+  });
 
-  const fetchPayments = async () => {
+  const fetchData = async () => {
     setIsLoading(true);
     try {
-      const data = await paymentsApi.getAll();
-      setPayments(data);
+      const [pmtRes, invRes, custRes] = await Promise.all([
+        paymentsApi.getAll(),
+        invoicesApi.getAll(),
+        customersApi.getAll()
+      ]);
+
+      let filtered = [...pmtRes];
+      if (searchTerm) {
+        const q = searchTerm.toLowerCase();
+        filtered = filtered.filter(p => 
+          p.paymentId.toLowerCase().includes(q) ||
+          p.customerName.toLowerCase().includes(q) ||
+          p.invoiceNumber.toLowerCase().includes(q)
+        );
+      }
+      if (methodFilter) {
+        filtered = filtered.filter(p => p.method === methodFilter);
+      }
+      if (typeFilter) {
+        filtered = filtered.filter(p => p.type === typeFilter);
+      }
+
+      setPayments(filtered);
+      setInvoices(invRes);
+      setCustomers(custRes.data);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPayments();
-  }, []);
+    fetchData();
+  }, [searchTerm, methodFilter, typeFilter]);
 
-  const handleRecordPayment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const res = await paymentsApi.create({
-      invoiceNumber,
-      customerName,
-      amount,
-      type,
-      method,
-      account,
-      notes
-    });
-    setGeneratedReceipt(res.receipt);
-    setIsModalOpen(false);
-    fetchPayments();
+  const handleInvoiceSelect = (invNum: string) => {
+    const inv = invoices.find(i => i.invoiceNumber === invNum);
+    if (inv) {
+      setFormData(prev => ({
+        ...prev,
+        invoiceNumber: inv.invoiceNumber,
+        customerId: inv.customerId,
+        customerName: inv.customerName,
+        amount: inv.balance > 0 ? inv.balance : inv.total,
+        type: inv.paid === 0 ? (inv.balance === 0 ? 'Full Payment' : 'Advance') : 'Balance Payment'
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, invoiceNumber: invNum }));
+    }
   };
 
+  const handleRecordPaymentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.customerName || formData.amount <= 0) return;
+
+    const res = await paymentsApi.create({
+      invoiceNumber: formData.invoiceNumber || 'INV-2026-0501',
+      customerId: formData.customerId || 'cust-1',
+      customerName: formData.customerName,
+      amount: formData.amount,
+      date: formData.date,
+      type: formData.type,
+      method: formData.method,
+      receivedBy: user?.name || 'Saman Jayasinghe',
+      account: formData.account,
+      bankReference: formData.bankReference || undefined,
+      notes: formData.notes || undefined,
+      proofUrl: formData.proofFileName ? `/uploads/${formData.proofFileName}` : undefined
+    });
+
+    setIsRecordModalOpen(false);
+    setGeneratedReceipt(res.receipt);
+    fetchData();
+    setNotification({
+      message: `Payment of LKR ${formData.amount.toLocaleString()} recorded successfully! Receipt #${res.receipt.receiptNumber} generated.`,
+      type: 'success'
+    });
+    setTimeout(() => setNotification(null), 5000);
+  };
+
+  // 9 Required Columns
   const columns: Column<Payment>[] = [
-    { key: 'paymentId', header: 'Payment ID', render: (p) => <span className="font-mono text-sky-400 font-semibold">{p.paymentId}</span> },
-    { key: 'customerName', header: 'Customer & Invoice', render: (p) => (
-      <div>
-        <div className="font-bold text-slate-100">{p.customerName}</div>
-        <div className="text-xs text-slate-400">Invoice: {p.invoiceNumber}</div>
-      </div>
-    )},
-    { key: 'amount', header: 'Amount Paid', render: (p) => <CurrencyDisplay amount={p.amount} className="text-emerald-400 font-bold" /> },
-    { key: 'method', header: 'Payment Method', render: (p) => <span className="text-xs px-2 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">{p.method}</span> },
-    { key: 'account', header: 'Deposited Account', render: (p) => <span className="text-xs text-slate-400">{p.account}</span> },
-    { key: 'receivedBy', header: 'Received By', render: (p) => <span className="text-xs text-slate-300">{p.receivedBy}</span> },
-    { key: 'date', header: 'Date', render: (p) => <span className="text-xs text-slate-500">{p.date}</span> },
+    { 
+      key: 'paymentId', 
+      header: 'Payment ID', 
+      render: (p) => <span className="font-mono text-blue-600 dark:text-sky-400 font-bold">{p.paymentId}</span> 
+    },
+    { 
+      key: 'invoiceNumber', 
+      header: 'Invoice', 
+      render: (p) => <span className="font-mono text-xs text-purple-600 dark:text-purple-400 font-semibold">{p.invoiceNumber}</span> 
+    },
+    { 
+      key: 'customerName', 
+      header: 'Customer', 
+      render: (p) => <span className="font-bold text-slate-900 dark:text-slate-100 text-xs">{p.customerName}</span> 
+    },
+    { 
+      key: 'amount', 
+      header: 'Amount', 
+      render: (p) => <CurrencyDisplay amount={p.amount} className="text-emerald-600 dark:text-emerald-400 font-black text-sm" /> 
+    },
+    { 
+      key: 'date', 
+      header: 'Date', 
+      render: (p) => <span className="text-xs text-slate-500">{p.date}</span> 
+    },
+    { 
+      key: 'type', 
+      header: 'Type', 
+      render: (p) => (
+        <span className="px-2.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[11px] font-bold">
+          {p.type}
+        </span>
+      ) 
+    },
+    { 
+      key: 'method', 
+      header: 'Payment Method', 
+      render: (p) => (
+        <span className="px-2.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 text-[11px] font-semibold">
+          {p.method}
+        </span>
+      ) 
+    },
+    { 
+      key: 'receivedBy', 
+      header: 'Received By', 
+      render: (p) => <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{p.receivedBy}</span> 
+    },
+    { 
+      key: 'status', 
+      header: 'Status', 
+      render: (p) => <StatusBadge status={p.status} /> 
+    },
   ];
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Payment Collections & Receipts"
-        subtitle="Record incoming client payments (Cash, Bank Transfer, Card), verify balances, and issue instant receipts."
+        title="Payment Management & Receipts"
+        subtitle="Record incoming client payments across multiple methods, verify deposits, and issue official receipts."
         breadcrumbs={[{ label: 'Payments' }]}
         actions={
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold text-sm shadow-lg shadow-sky-500/20"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Record Payment</span>
-          </button>
+          <PermissionGuard permission="payment.create">
+            <button
+              onClick={() => setIsRecordModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-600/20 transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Record Payment</span>
+            </button>
+          </PermissionGuard>
         }
       />
 
-      <DataTable columns={columns} data={payments} isLoading={isLoading} />
+      {/* Notification Toast */}
+      {notification && (
+        <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200 text-xs flex items-center justify-between shadow-md">
+          <div className="flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600" />
+            <span className="font-semibold">{notification.message}</span>
+          </div>
+          <button onClick={() => setNotification(null)} className="text-xs font-bold underline ml-4">
+            Dismiss
+          </button>
+        </div>
+      )}
 
-      {/* Payment Success Receipt Trigger Modal */}
+      {/* Search & Filters */}
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-white dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+        <SearchInput 
+          value={searchTerm} 
+          onChange={setSearchTerm} 
+          placeholder="Search by payment ID, invoice, or customer..." 
+          className="w-full md:w-80" 
+        />
+
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          {/* Method Filter */}
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-slate-400" />
+            <select
+              value={methodFilter}
+              onChange={(e) => setMethodFilter(e.target.value)}
+              className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-blue-500"
+            >
+              <option value="">All 5 Payment Methods</option>
+              {paymentMethods.map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Type Filter */}
+          <div className="flex items-center gap-2">
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-200 focus:outline-none focus:border-blue-500"
+            >
+              <option value="">All 5 Payment Types</option>
+              {paymentTypes.map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* DataTable */}
+      <DataTable
+        columns={columns}
+        data={payments}
+        isLoading={isLoading}
+        emptyText="No payment transaction records found."
+        onRowClick={(p) => setViewingPayment(p)}
+        actions={(p) => (
+          <div className="flex items-center gap-2 justify-end">
+            <button
+              onClick={() => setViewingPayment(p)}
+              className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-sky-500/15 text-blue-600 dark:text-sky-400 border border-blue-200 dark:border-sky-500/30 text-xs font-semibold hover:bg-blue-100 flex items-center gap-1 transition-all"
+              title="View Payment Details"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Details</span>
+            </button>
+
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setGeneratedReceipt({
+                  id: `rcp-${p.id}`,
+                  receiptNumber: `REC-2026-${p.paymentId.replace('PMT-', '')}`,
+                  paymentId: p.paymentId,
+                  customerName: p.customerName,
+                  amountReceived: p.amount,
+                  paymentFor: `Invoice ${p.invoiceNumber} (${p.type})`,
+                  paymentMethod: p.method,
+                  remainingBalance: 0,
+                  date: p.date,
+                  receivedBy: p.receivedBy
+                });
+              }}
+              className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 text-xs font-semibold hover:bg-emerald-100 flex items-center gap-1 transition-all"
+              title="Generate / Print Receipt"
+            >
+              <ReceiptIcon className="w-3.5 h-3.5" />
+              <span>Receipt</span>
+            </button>
+          </div>
+        )}
+      />
+
+      {/* Record Payment Form Modal (All Required Fields) */}
+      {isRecordModalOpen && (
+        <FormModal
+          isOpen={isRecordModalOpen}
+          onClose={() => setIsRecordModalOpen(false)}
+          title="Record Customer Payment"
+          maxWidth="2xl"
+        >
+          <form onSubmit={handleRecordPaymentSubmit} className="space-y-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Associated Invoice
+                </label>
+                <select
+                  value={formData.invoiceNumber}
+                  onChange={(e) => handleInvoiceSelect(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-mono focus:outline-none focus:border-blue-500"
+                >
+                  <option value="">-- Direct Payment (No Specific Invoice) --</option>
+                  {invoices.map(i => (
+                    <option key={i.id} value={i.invoiceNumber}>
+                      {i.invoiceNumber} — {i.customerName} (Bal: LKR {i.balance.toLocaleString()})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-bold text-slate-700 dark:text-slate-300">
+                    Select Registered Customer <span className="text-rose-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomerRegOpen(true)}
+                    className="text-[11px] font-bold text-blue-600 hover:text-blue-500 flex items-center gap-1 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-lg border border-blue-200 dark:border-blue-800 transition-all"
+                    title="Open Customer Registration Popup"
+                  >
+                    <UserPlus className="w-3 h-3" />
+                    <span>+ Register New Customer</span>
+                  </button>
+                </div>
+                <select
+                  required
+                  value={formData.customerId}
+                  onChange={(e) => {
+                    const cust = customers.find(c => c.id === e.target.value);
+                    if (cust) {
+                      setFormData({
+                        ...formData,
+                        customerId: cust.id,
+                        customerName: cust.name
+                      });
+                    }
+                  }}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-bold focus:outline-none focus:border-blue-500"
+                >
+                  <option value="">-- Choose Registered Customer --</option>
+                  {customers.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.customerId}) — {c.phone}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Payment Amount (LKR) <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: Number(e.target.value) })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-emerald-600 dark:text-emerald-400 font-black text-base focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Payment Type (5 Types)</label>
+                <select
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value as PaymentType })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-semibold"
+                >
+                  {paymentTypes.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Payment Method (5 Methods)</label>
+                <select
+                  value={formData.method}
+                  onChange={(e) => setFormData({ ...formData, method: e.target.value as PaymentMethod })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500 font-semibold"
+                >
+                  {paymentMethods.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Account Deposited To</label>
+                <select
+                  value={formData.account}
+                  onChange={(e) => setFormData({ ...formData, account: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500"
+                >
+                  <option value="Cash in Hand">Cash in Hand</option>
+                  <option value="Commercial Bank ARS Main - 1000234891">Commercial Bank ARS Main - 1000234891</option>
+                  <option value="Sampath Bank ARS - 002910004561">Sampath Bank ARS - 002910004561</option>
+                  <option value="Online Gateway (Stripe)">Online Gateway (Stripe)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Bank Reference / TXN Ref</label>
+                <input
+                  type="text"
+                  value={formData.bankReference}
+                  onChange={(e) => setFormData({ ...formData, bankReference: e.target.value })}
+                  placeholder="e.g. TXN-9082341"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Date</label>
+                <input
+                  type="date"
+                  required
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Notes / Remittance Description</label>
+                <input
+                  type="text"
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  placeholder="Payment description or reference note..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100"
+                />
+              </div>
+
+              {/* Proof Upload Simulation */}
+              <div className="sm:col-span-2 space-y-1">
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Proof Upload (Bank Slip / Receipt Attachment)</label>
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-dashed border-slate-300 dark:border-slate-800">
+                  <Upload className="w-5 h-5 text-blue-600 shrink-0" />
+                  <input
+                    type="file"
+                    onChange={(e) => setFormData({ ...formData, proofFileName: e.target.files?.[0]?.name || '' })}
+                    className="text-xs text-slate-600 dark:text-slate-400 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsRecordModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white text-slate-700 font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-lg shadow-blue-600/20"
+              >
+                Confirm Payment & Issue Receipt
+              </button>
+            </div>
+          </form>
+        </FormModal>
+      )}
+
+      {/* Post-Payment Receipt Generation Action Modal */}
       {generatedReceipt && (
         <FormModal
           isOpen={!!generatedReceipt}
           onClose={() => setGeneratedReceipt(null)}
-          title="Payment Successfully Recorded & Receipt Issued!"
+          title="Payment Successfully Recorded — Official Receipt Issued"
           maxWidth="lg"
         >
-          <div className="space-y-4 text-center">
-            <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/30">
-              <CheckCircle2 className="w-8 h-8" />
+          <div className="space-y-6 text-xs">
+            {/* Success Banner */}
+            <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-center space-y-1">
+              <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center mx-auto shadow-md">
+                <Check className="w-6 h-6 stroke-[3]" />
+              </div>
+              <h3 className="font-bold text-sm text-emerald-900 dark:text-emerald-200 pt-1">Payment Successfully Verified!</h3>
+              <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                Official Receipt <span className="font-mono font-bold text-emerald-900 dark:text-emerald-100">{generatedReceipt.receiptNumber}</span> generated.
+              </p>
             </div>
-            <div>
-              <p className="text-lg font-bold text-slate-100">Receipt #{generatedReceipt.receiptNumber}</p>
-              <p className="text-xs text-slate-400">Amount Received: LKR {generatedReceipt.amountReceived.toLocaleString()} from {generatedReceipt.customerName}</p>
+
+            {/* Official Receipt Document Card */}
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-lg text-slate-900 space-y-4 font-sans">
+              <div className="flex justify-between items-start border-b border-slate-200 pb-3">
+                <div>
+                  <div className="font-black text-lg text-blue-900 tracking-tight">ARS VISA & CONSULTANTS</div>
+                  <p className="text-[10px] text-slate-500">Access Towers, Colombo 02 | Hotline: +94 11 234 5678</p>
+                </div>
+                <div className="text-right">
+                  <span className="font-mono font-bold text-xs text-blue-600">{generatedReceipt.receiptNumber}</span>
+                  <p className="text-[10px] text-slate-500">Date: {generatedReceipt.date}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Received From:</span>
+                  <span className="font-bold text-slate-900">{generatedReceipt.customerName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Payment Reference:</span>
+                  <span className="font-mono text-purple-600 font-bold">{generatedReceipt.paymentId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Payment For:</span>
+                  <span className="font-semibold text-slate-800">{generatedReceipt.paymentFor}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Method / Account:</span>
+                  <span className="text-slate-800">{generatedReceipt.paymentMethod}</span>
+                </div>
+                <div className="flex justify-between pt-2 border-t border-slate-200 text-sm">
+                  <span className="font-bold text-slate-900">Total Amount Received:</span>
+                  <span className="font-mono font-black text-emerald-600 text-base">LKR {generatedReceipt.amountReceived.toLocaleString()}</span>
+                </div>
+              </div>
             </div>
-            <div className="flex justify-center gap-3 pt-4">
+
+            {/* Receipt Actions */}
+            <div className="flex flex-wrap items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-800 gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>Print Receipt</span>
+                </button>
+                <button
+                  onClick={() => window.print()}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download PDF</span>
+                </button>
+              </div>
+
               <button
-                onClick={() => { setGeneratedReceipt(null); window.print(); }}
-                className="px-4 py-2 rounded-xl bg-sky-500 text-white font-bold text-xs"
+                onClick={() => setGeneratedReceipt(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs"
               >
-                Print Official Receipt
+                Close View
               </button>
             </div>
           </div>
         </FormModal>
       )}
 
-      {/* Record Payment Modal */}
-      <FormModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Record Customer Payment"
-        maxWidth="lg"
-      >
-        <form onSubmit={handleRecordPayment} className="space-y-4 text-xs">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="font-semibold text-slate-300">Invoice Number *</label>
-              <input
-                type="text"
-                required
-                value={invoiceNumber}
-                onChange={(e) => setInvoiceNumber(e.target.value)}
-                className="w-full mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100"
-              />
+      {/* Viewing Payment Details Modal */}
+      {viewingPayment && !generatedReceipt && (
+        <FormModal
+          isOpen={!!viewingPayment}
+          onClose={() => setViewingPayment(null)}
+          title={`Payment Details — ${viewingPayment.paymentId}`}
+          maxWidth="md"
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Customer Name:</span>
+                <span className="font-bold text-slate-900 dark:text-slate-100">{viewingPayment.customerName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Billed Invoice #:</span>
+                <span className="font-mono text-purple-600 dark:text-purple-400 font-bold">{viewingPayment.invoiceNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Amount Paid:</span>
+                <span className="font-mono text-emerald-600 dark:text-emerald-400 font-black text-sm">LKR {viewingPayment.amount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Payment Type:</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{viewingPayment.type}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Payment Method:</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{viewingPayment.method}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Deposited Account:</span>
+                <span className="text-slate-800 dark:text-slate-200">{viewingPayment.account}</span>
+              </div>
+              {viewingPayment.bankReference && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Bank Ref #:</span>
+                  <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{viewingPayment.bankReference}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-slate-500">Received By Staff:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">{viewingPayment.receivedBy}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Transaction Status:</span>
+                <StatusBadge status={viewingPayment.status} />
+              </div>
             </div>
-            <div>
-              <label className="font-semibold text-slate-300">Customer Name *</label>
-              <input
-                type="text"
-                required
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                className="w-full mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100"
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="font-semibold text-slate-300">Amount Paid (LKR) *</label>
-              <input
-                type="number"
-                required
-                value={amount}
-                onChange={(e) => setAmount(Number(e.target.value))}
-                className="w-full mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-emerald-400 font-bold text-base"
-              />
-            </div>
-            <div>
-              <label className="font-semibold text-slate-300">Payment Type</label>
-              <select
-                value={type}
-                onChange={(e) => setType(e.target.value as PaymentType)}
-                className="w-full mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100"
+            <div className="flex justify-between gap-3 pt-2">
+              <button
+                onClick={() => {
+                  setGeneratedReceipt({
+                    id: `rcp-${viewingPayment.id}`,
+                    receiptNumber: `REC-2026-${viewingPayment.paymentId.replace('PMT-', '')}`,
+                    paymentId: viewingPayment.paymentId,
+                    customerName: viewingPayment.customerName,
+                    amountReceived: viewingPayment.amount,
+                    paymentFor: `Invoice ${viewingPayment.invoiceNumber} (${viewingPayment.type})`,
+                    paymentMethod: viewingPayment.method,
+                    remainingBalance: 0,
+                    date: viewingPayment.date,
+                    receivedBy: viewingPayment.receivedBy
+                  });
+                  setViewingPayment(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
               >
-                <option value="Full Payment">Full Payment</option>
-                <option value="Advance">Advance</option>
-                <option value="Part Payment">Part Payment</option>
-                <option value="Installment">Installment</option>
-                <option value="Balance Payment">Balance Payment</option>
-              </select>
-            </div>
-          </div>
+                <ReceiptIcon className="w-4 h-4" />
+                <span>Generate Official Receipt</span>
+              </button>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="font-semibold text-slate-300">Payment Method</label>
-              <select
-                value={method}
-                onChange={(e) => setMethod(e.target.value as PaymentMethod)}
-                className="w-full mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100"
+              <button
+                onClick={() => setViewingPayment(null)}
+                className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white text-slate-700 font-semibold"
               >
-                <option value="Cash">Cash</option>
-                <option value="Bank Transfer">Bank Transfer</option>
-                <option value="Card">Card</option>
-                <option value="Online">Online</option>
-              </select>
-            </div>
-            <div>
-              <label className="font-semibold text-slate-300">Account Deposited To</label>
-              <select
-                value={account}
-                onChange={(e) => setAccount(e.target.value)}
-                className="w-full mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100"
-              >
-                <option value="Cash in Hand">Cash in Hand</option>
-                <option value="Commercial Bank - 1000234891">Commercial Bank - 1000234891</option>
-                <option value="Sampath Bank - 002910004561">Sampath Bank - 002910004561</option>
-              </select>
+                Close
+              </button>
             </div>
           </div>
-
-          <div>
-            <label className="font-semibold text-slate-300">Notes / Bank Ref</label>
-            <input
-              type="text"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              className="w-full mt-1 px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100"
-            />
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(false)}
-              className="px-4 py-2 rounded-xl border border-slate-700 text-slate-300 font-bold"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white font-bold shadow-lg shadow-sky-500/20"
-            >
-              Confirm & Issue Receipt
-            </button>
-          </div>
-        </form>
-      </FormModal>
+        </FormModal>
+      )}
+      {/* Register New Customer Popup */}
+      {isCustomerRegOpen && (
+        <CustomerRegistrationModal
+          isOpen={isCustomerRegOpen}
+          onClose={() => setIsCustomerRegOpen(false)}
+          onSuccess={(result) => {
+            setIsCustomerRegOpen(false);
+            fetchData();
+            setFormData(prev => ({
+              ...prev,
+              customerId: result.customer.id,
+              customerName: result.customer.name
+            }));
+            setNotification({
+              message: `Registered new customer "${result.customer.name}" (${result.customer.customerId}) and auto-selected for payment!`,
+              type: 'success'
+            });
+            setTimeout(() => setNotification(null), 5000);
+          }}
+          existingCustomersCount={customers.length}
+        />
+      )}
     </div>
   );
 };
