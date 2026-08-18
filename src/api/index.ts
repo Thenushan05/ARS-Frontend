@@ -67,10 +67,18 @@ export const leadsApi = {
       let filtered = [...leadsStore];
       if (params?.search) {
         const q = params.search.toLowerCase();
-        filtered = filtered.filter(l => l.name.toLowerCase().includes(q) || l.phone.includes(q) || l.country.toLowerCase().includes(q));
+        filtered = filtered.filter(l => 
+          l.name.toLowerCase().includes(q) || 
+          l.phone.includes(q) || 
+          l.country.toLowerCase().includes(q) ||
+          l.leadId.toLowerCase().includes(q)
+        );
       }
       if (params?.status) {
         filtered = filtered.filter(l => l.status === params.status);
+      }
+      if (params?.source) {
+        filtered = filtered.filter(l => l.source === params.source);
       }
       return mockDelay({
         data: filtered,
@@ -267,6 +275,15 @@ export const customersApi = {
       }
       throw new Error('Customer not found');
     }
+  },
+  delete: async (id: string): Promise<boolean> => {
+    try {
+      await axiosInstance.delete(`/customers/${id}`);
+      return true;
+    } catch {
+      customersStore = customersStore.filter(c => c.id !== id);
+      return mockDelay(true);
+    }
   }
 };
 
@@ -357,16 +374,52 @@ export const eVisaApi = {
         stayPeriod: item.stayPeriod || '10 Days',
         processingTime: item.processingTime || '24 Hours',
         customerSellingPrice: item.customerSellingPrice || 30000,
-        currency: 'LKR',
-        status: 'Active',
+        currency: item.currency || 'LKR',
+        status: item.status || 'Active',
         lastUpdated: new Date().toISOString().split('T')[0],
         governmentFee: item.governmentFee,
         supplierCost: item.supplierCost,
+        otherCost: item.otherCost,
         arsServiceCharge: item.arsServiceCharge,
         estimatedProfit: item.estimatedProfit
       };
       evisaStore.unshift(newItem);
       return mockDelay(newItem);
+    }
+  },
+  update: async (id: string, updates: Partial<EVisaService>): Promise<EVisaService> => {
+    try {
+      const res = await axiosInstance.patch(`/evisa/${id}`, updates);
+      return res.data;
+    } catch {
+      const index = evisaStore.findIndex(e => e.id === id);
+      if (index !== -1) {
+        evisaStore[index] = { 
+          ...evisaStore[index], 
+          ...updates, 
+          lastUpdated: new Date().toISOString().split('T')[0] 
+        };
+        return mockDelay(evisaStore[index]);
+      }
+      throw new Error('e-Visa not found');
+    }
+  },
+  toggleStatus: async (id: string): Promise<EVisaService> => {
+    try {
+      const res = await axiosInstance.patch(`/evisa/${id}/toggle-status`);
+      return res.data;
+    } catch {
+      const index = evisaStore.findIndex(e => e.id === id);
+      if (index !== -1) {
+        const nextStatus = evisaStore[index].status === 'Active' ? 'Inactive' : 'Active';
+        evisaStore[index] = { 
+          ...evisaStore[index], 
+          status: nextStatus,
+          lastUpdated: new Date().toISOString().split('T')[0] 
+        };
+        return mockDelay(evisaStore[index]);
+      }
+      throw new Error('e-Visa not found');
     }
   }
 };
@@ -391,15 +444,42 @@ export const pricingApi = {
         id: `pr-${Date.now()}`,
         serviceName: item.serviceName || 'New Service',
         category: item.category || 'Visa Services',
+        subcategory: item.subcategory || 'Tourist Visa Processing',
         sellingPrice: item.sellingPrice || 10000,
-        currency: 'LKR',
-        status: 'Active',
+        currency: item.currency || 'LKR',
+        status: item.status || 'Active',
         costPrice: item.costPrice,
         serviceCharge: item.serviceCharge,
         profit: item.profit
       };
       priceStore.unshift(newItem);
       return mockDelay(newItem);
+    }
+  },
+  update: async (id: string, updates: Partial<MasterPriceItem>): Promise<MasterPriceItem> => {
+    try {
+      const res = await axiosInstance.patch(`/pricing/${id}`, updates);
+      return res.data;
+    } catch {
+      const idx = priceStore.findIndex(p => p.id === id);
+      if (idx !== -1) {
+        priceStore[idx] = { ...priceStore[idx], ...updates };
+        return mockDelay(priceStore[idx]);
+      }
+      throw new Error('Price item not found');
+    }
+  },
+  toggleStatus: async (id: string): Promise<MasterPriceItem> => {
+    try {
+      const res = await axiosInstance.patch(`/pricing/${id}/toggle-status`);
+      return res.data;
+    } catch {
+      const idx = priceStore.findIndex(p => p.id === id);
+      if (idx !== -1) {
+        priceStore[idx].status = priceStore[idx].status === 'Active' ? 'Inactive' : 'Active';
+        return mockDelay(priceStore[idx]);
+      }
+      throw new Error('Price item not found');
     }
   }
 };

@@ -168,6 +168,7 @@ export interface MasterPriceItem {
   id: string;
   serviceName: string;
   category: ServiceCategory;
+  subcategory?: string;
   sellingPrice: number;
   currency: string;
   status: 'Active' | 'Inactive';
@@ -438,6 +439,7 @@ export interface PaginatedResponse<T> {
 export interface FilterParams {
   search?: string;
   status?: string;
+  source?: string;
   category?: string;
   country?: string;
   startDate?: string;

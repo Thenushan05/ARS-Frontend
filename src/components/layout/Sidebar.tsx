@@ -74,6 +74,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ collapsed, onToggleCollapse })
       groupName: 'Management',
       items: [
         { label: 'Staff Management', path: '/staff', icon: Award, permission: 'staff.manage' },
+        { label: 'Roles & Permissions', path: '/roles-permissions', icon: Shield, permission: 'settings.manage' },
         { label: 'Reports & Analytics', path: '/reports', icon: PieChart, permission: 'reports.view' },
         { label: 'System Settings', path: '/settings', icon: Settings, permission: 'settings.manage' },
       ]

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Bell, Search, LogOut, User as UserIcon, Shield, ChevronDown, Sun, Moon } from 'lucide-react';
+import { Bell, Search, LogOut, User as UserIcon, Shield, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useTheme } from '../../context/ThemeContext';
 import { UserRole } from '../../types';
 
 interface NavbarProps {
@@ -10,7 +9,6 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = () => {
   const { user, logout, switchRole } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showRoleSelector, setShowRoleSelector] = useState(false);
 
@@ -39,24 +37,6 @@ export const Navbar: React.FC<NavbarProps> = () => {
 
         {/* Right Action Icons */}
         <div className="flex items-center gap-3 sm:gap-4 ml-auto">
-          {/* Theme Toggle Button */}
-          <button
-            onClick={toggleTheme}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-200 dark:hover:bg-slate-800 transition-all"
-            title={`Switch to ${theme === 'light' ? 'Dark' : 'Light'} Mode`}
-          >
-            {theme === 'light' ? (
-              <>
-                <Moon className="w-3.5 h-3.5 text-indigo-600" />
-                <span className="hidden sm:inline">Dark Theme</span>
-              </>
-            ) : (
-              <>
-                <Sun className="w-3.5 h-3.5 text-amber-400" />
-                <span className="hidden sm:inline">Light Theme</span>
-              </>
-            )}
-          </button>
 
           {/* Quick Role Switcher */}
           <div className="relative">

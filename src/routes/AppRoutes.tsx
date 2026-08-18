@@ -24,6 +24,7 @@ import SuppliersPage from '../features/suppliers/SuppliersPage';
 import StaffPage from '../features/staff/StaffPage';
 import ReportsPage from '../features/reports/ReportsPage';
 import SettingsPage from '../features/settings/SettingsPage';
+import RolesPermissionsPage from '../features/permissions/RolesPermissionsPage';
 import PermissionGuard from '../components/common/PermissionGuard';
 
 export const AppRoutes: React.FC = () => {
@@ -144,6 +145,12 @@ export const AppRoutes: React.FC = () => {
         <Route path="settings" element={
           <PermissionGuard permission="settings.manage" fallback={<Navigate to="/dashboard" />}>
             <SettingsPage />
+          </PermissionGuard>
+        } />
+
+        <Route path="roles-permissions" element={
+          <PermissionGuard permission="settings.manage" fallback={<Navigate to="/dashboard" />}>
+            <RolesPermissionsPage />
           </PermissionGuard>
         } />
       </Route>
