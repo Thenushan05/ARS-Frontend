@@ -1,77 +1,81 @@
 import React, { useState } from 'react';
 import { 
   Briefcase, CheckCircle2, Clock, FileCheck, Upload, Download, 
-  Printer, CreditCard, Calendar, AlertCircle, ShieldCheck, MapPin, Phone, Eye, Check, Plus
+  Printer, CreditCard, Calendar, AlertCircle, ShieldCheck, MapPin, Phone, Eye, Check, Plus,
+  Sparkles, ArrowRight, FileText, ChevronRight, UserCheck, MessageCircle, HeartHandshake,
+  HelpCircle, CheckCircle
 } from 'lucide-react';
 import CurrencyDisplay from '../../components/common/CurrencyDisplay';
 import FormModal from '../../components/modals/FormModal';
 
 export const CustomerPortalPage: React.FC = () => {
-  // Upload Modal State
+  // Modals State
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploadDocType, setUploadDocType] = useState('Bank Statement');
   const [uploadFileName, setUploadFileName] = useState('');
 
-  // Book Appointment Modal State
   const [isBookAptModalOpen, setIsBookAptModalOpen] = useState(false);
   const [aptType, setAptType] = useState('Office Appointment');
   const [aptDate, setAptDate] = useState('2026-08-25');
   const [aptTime, setAptTime] = useState('10:00 AM');
   const [aptNotes, setAptNotes] = useState('');
 
-  // Receipt Modal View State
   const [viewingReceipt, setViewingReceipt] = useState<boolean>(false);
-
-  // Notification Toast
   const [notification, setNotification] = useState<string | null>(null);
 
-  // Mock Customer Application Data (Sanduni De Silva)
+  // Customer Data (Sanduni De Silva)
   const clientData = {
     customerName: 'Sanduni De Silva',
+    firstName: 'Sanduni',
     customerId: 'CUST-002',
     phone: '+94 77 444 3322',
     email: 'sanduni@example.com',
     caseId: 'CAS-9002',
     country: 'France',
     visaType: 'Schengen Tourist Visa',
-    packageTitle: 'France Schengen Premium Visa Package',
-    currentStage: 'VFS Biometrics & Submission',
+    packageTitle: 'France Schengen Tourist Visa Package',
+    currentStage: 'VFS Appointment Booked',
     totalFee: 135000,
     paidAmount: 70000,
     balance: 65000,
-    dueDate: '2026-08-30'
+    dueDate: 'August 30, 2026',
+    assignedConsultant: 'Nimali Fernando',
+    consultantPhone: '+94 77 123 4567'
   };
 
-  // Live Application Timeline Steps
+  // Payment Progress Percentage
+  const paymentPercentage = Math.round((clientData.paidAmount / clientData.totalFee) * 100);
+
+  // Friendly Consumer Application Timeline
   const timelineSteps = [
-    { step: 1, title: 'Document Collection', status: 'Completed', date: '2026-07-28' },
-    { step: 2, title: 'Document Verification', status: 'Completed', date: '2026-08-05' },
-    { step: 3, title: 'VFS Appointment Booked', status: 'In Progress', date: '2026-08-22' },
-    { step: 4, title: 'Embassy Processing', status: 'Pending', date: 'Upcoming' },
-    { step: 5, title: 'Passport Ready', status: 'Pending', date: 'Upcoming' },
+    { step: 1, title: 'Document Collection', status: 'Completed', detail: 'All primary certificates submitted', date: 'Jul 28, 2026' },
+    { step: 2, title: 'Document Verification', status: 'Completed', detail: 'Verified by ARS Compliance Team', date: 'Aug 05, 2026' },
+    { step: 3, title: 'VFS Appointment Booked', status: 'In Progress', detail: 'Scheduled for Aug 22, 2026 at 09:30 AM', date: 'Aug 22, 2026' },
+    { step: 4, title: 'Embassy Processing', status: 'Pending', detail: 'Embassy review & decision', date: 'Upcoming' },
+    { step: 5, title: 'Passport Ready', status: 'Pending', detail: 'Collection at ARS Colombo', date: 'Upcoming' },
   ];
 
-  // Documents Required from Client
-  const [requiredDocs, setRequiredDocs] = useState([
+  // Required Client Documents Checklist
+  const requiredDocs = [
     { id: 'req-1', type: 'Bank Statement', description: 'Certified 6-Month Bank Statement (Original Stamped)', status: 'Action Required' },
     { id: 'req-2', type: 'NIC Translation', description: 'Certified English Translation of National Identity Card', status: 'Received' }
-  ]);
+  ];
 
-  // Documents Received & Verified
+  // Received & Verified Documents
   const receivedDocs = [
-    { id: 'doc-101', name: 'Sanduni_DeSilva_Passport.pdf', type: 'Passport', date: '2026-07-28', status: 'Verified' },
-    { id: 'doc-102', name: 'Employment_Cover_Letter.pdf', type: 'Employment Letter', date: '2026-08-02', status: 'Verified' },
-    { id: 'doc-103', name: 'Schengen_Travel_Insurance.pdf', type: 'Insurance', date: '2026-08-10', status: 'Verified' }
+    { id: 'doc-101', name: 'Sanduni_DeSilva_Passport.pdf', type: 'Passport Bio-Page', date: 'Jul 28, 2026', status: 'Verified' },
+    { id: 'doc-102', name: 'Employment_Cover_Letter.pdf', type: 'Employment Letter', date: 'Aug 02, 2026', status: 'Verified' },
+    { id: 'doc-103', name: 'Schengen_Travel_Insurance.pdf', type: 'Travel Insurance Policy', date: 'Aug 10, 2026', status: 'Verified' }
   ];
 
-  // Payment Payouts
+  // Payment Log
   const paymentsList = [
-    { id: 'pmt-1', date: '2026-07-28', receiptNo: 'REC-2026-101', amount: 70000, method: 'Bank Transfer', for: 'Advance payment for France Schengen Package' }
+    { id: 'pmt-1', date: 'Jul 28, 2026', receiptNo: 'REC-2026-101', amount: 70000, method: 'Bank Transfer', for: 'Advance payment for France Schengen Package' }
   ];
 
-  // Upcoming Appointments
+  // Upcoming Scheduled Appointments
   const appointmentsList = [
-    { id: 'apt-1', title: 'France Schengen VFS Biometrics & Submission', date: 'August 22, 2026', time: '09:30 AM', location: 'VFS Global Access Towers, Colombo', type: 'VFS Appointment' }
+    { id: 'apt-1', title: 'France Schengen VFS Biometrics & Submission', date: 'Saturday, August 22, 2026', time: '09:30 AM', location: 'VFS Global Access Towers, Union Place, Colombo 02', type: 'VFS Appointment' }
   ];
 
   const handleUploadSubmit = (e: React.FormEvent) => {
@@ -82,116 +86,180 @@ export const CustomerPortalPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Toast Notification */}
       {notification && (
-        <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100 text-xs font-bold flex items-center justify-between shadow-md">
-          <span>{notification}</span>
-          <button onClick={() => setNotification(null)} className="text-emerald-600 font-bold hover:underline">Dismiss</button>
+        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-900 dark:text-emerald-200 text-xs font-bold flex items-center justify-between shadow-lg backdrop-blur-md animate-fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
+            <span>{notification}</span>
+          </div>
+          <button onClick={() => setNotification(null)} className="text-emerald-600 font-bold hover:underline text-xs">Dismiss</button>
         </div>
       )}
 
-      {/* 1. MY APPLICATION & CURRENT STATUS HEADER CARD */}
-      <div className="p-6 rounded-3xl bg-gradient-to-br from-blue-700 to-indigo-900 text-white shadow-xl space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-blue-500/30 pb-4">
-          <div className="space-y-1">
-            <span className="px-3 py-1 rounded-full bg-blue-500/30 border border-blue-400/40 text-blue-200 text-xs font-bold uppercase tracking-wider">
-              {clientData.country} Visa Case — Ref #{clientData.caseId}
-            </span>
-            <h1 className="text-xl sm:text-2xl font-black">{clientData.packageTitle}</h1>
-            <p className="text-xs text-blue-200">Registered Client: {clientData.customerName} ({clientData.customerId})</p>
+      {/* 1. WARM PERSONAL GREETING BANNER */}
+      <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white shadow-xl space-y-3 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+        
+        <div className="relative z-10 space-y-2">
+          <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-white text-xs font-bold inline-flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5" /> Welcome Back
+          </span>
+          <h1 className="text-2xl sm:text-4xl font-black tracking-tight">
+            Hello, {clientData.firstName}! 👋
+          </h1>
+          <p className="text-xs sm:text-sm text-blue-100 font-medium max-w-2xl leading-relaxed">
+            Welcome to your personal France Schengen Visa Application Portal. Your application is currently on track for VFS submission.
+          </p>
+        </div>
+      </div>
+
+      {/* 2. QUICK CONSUMER ACTION BUTTONS GRID */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <button
+          onClick={() => setIsUploadModalOpen(true)}
+          className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:shadow-md transition-all text-left space-y-2 group active:scale-95"
+        >
+          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-sky-400 flex items-center justify-center group-hover:scale-110 transition-all">
+            <Upload className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="font-bold text-slate-900 dark:text-slate-100 text-xs block">Upload Document</span>
+            <span className="text-[10px] text-slate-500 font-medium block">Submit bank statement/NIC</span>
+          </div>
+        </button>
+
+        <button
+          onClick={() => setIsBookAptModalOpen(true)}
+          className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:shadow-md transition-all text-left space-y-2 group active:scale-95"
+        >
+          <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-600 dark:text-purple-300 flex items-center justify-center group-hover:scale-110 transition-all">
+            <Calendar className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="font-bold text-slate-900 dark:text-slate-100 text-xs block">Book Appointment</span>
+            <span className="text-[10px] text-slate-500 font-medium block">Schedule office consultation</span>
+          </div>
+        </button>
+
+        <button
+          onClick={() => setViewingReceipt(true)}
+          className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:shadow-md transition-all text-left space-y-2 group active:scale-95"
+        >
+          <div className="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-all">
+            <FileText className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="font-bold text-slate-900 dark:text-slate-100 text-xs block">View e-Receipt</span>
+            <span className="text-[10px] text-slate-500 font-medium block">Download payment PDF</span>
+          </div>
+        </button>
+
+        <a
+          href={`https://wa.me/${clientData.consultantPhone.replace(/[^0-9]/g, '')}`}
+          target="_blank"
+          rel="noreferrer"
+          className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs hover:shadow-md transition-all text-left space-y-2 group active:scale-95"
+        >
+          <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-all">
+            <MessageCircle className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="font-bold text-slate-900 dark:text-slate-100 text-xs block">WhatsApp Support</span>
+            <span className="text-[10px] text-slate-500 font-medium block">Chat with {clientData.assignedConsultant}</span>
+          </div>
+        </a>
+      </div>
+
+      {/* 3. VISA APPLICATION STATUS CONSUMER CARD */}
+      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+          <div>
+            <span className="text-xs font-bold text-blue-600 dark:text-sky-400 uppercase tracking-wider block">CURRENT APPLICATION STATUS</span>
+            <h2 className="text-xl font-black text-slate-900 dark:text-slate-100 mt-1">{clientData.packageTitle}</h2>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">Application Reference: <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{clientData.caseId}</span></p>
           </div>
 
-          <div className="px-4 py-2 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-center">
-            <span className="text-[10px] uppercase font-bold text-blue-200 block">CURRENT STAGE</span>
-            <span className="text-sm font-black text-amber-300 flex items-center gap-1">
-              <Clock className="w-4 h-4" />
-              <span>{clientData.currentStage}</span>
-            </span>
+          <div className="px-4 py-2 rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs font-bold flex items-center gap-2">
+            <Clock className="w-4 h-4 text-amber-600" />
+            <span>VFS Appointment Scheduled</span>
           </div>
         </div>
 
-        {/* 5-Stage Live Application Progress Timeline */}
-        <div className="space-y-2">
-          <span className="text-xs font-bold text-blue-200 uppercase tracking-wider block">Live Application Progress Timeline</span>
-          <div className="grid grid-cols-1 sm:grid-cols-5 gap-2 pt-2">
-            {timelineSteps.map((s) => (
-              <div 
-                key={s.step} 
-                className={`p-3 rounded-2xl border transition-all ${
-                  s.status === 'Completed'
-                    ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200'
-                    : s.status === 'In Progress'
-                    ? 'bg-amber-500/20 border-amber-400/50 text-amber-200 shadow-md'
-                    : 'bg-white/5 border-white/10 text-blue-200/60'
-                }`}
-              >
-                <div className="flex items-center justify-between text-[10px] font-bold mb-1">
-                  <span>Step {s.step}</span>
-                  {s.status === 'Completed' && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+        {/* Friendly Step Progress */}
+        <div className="space-y-4">
+          <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Step-by-Step Progress</h3>
+          <div className="space-y-3">
+            {timelineSteps.map((s) => {
+              const isDone = s.status === 'Completed';
+              const isInProgress = s.status === 'In Progress';
+
+              return (
+                <div key={s.step} className={`p-4 rounded-2xl border flex items-center justify-between gap-4 transition-all ${
+                  isDone 
+                    ? 'bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/60' 
+                    : isInProgress
+                    ? 'bg-amber-50/60 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 ring-2 ring-amber-400/20'
+                    : 'bg-slate-50/50 dark:bg-slate-950/50 border-slate-200 dark:border-slate-800 opacity-60'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                      isDone ? 'bg-emerald-600 text-white' : isInProgress ? 'bg-amber-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
+                    }`}>
+                      {isDone ? <Check className="w-4 h-4" /> : s.step}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{s.title}</h4>
+                      <p className="text-[11px] text-slate-500 font-medium">{s.detail}</p>
+                    </div>
+                  </div>
+
+                  <span className={`text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full border ${
+                    isDone ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : isInProgress ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-slate-100 text-slate-500 border-slate-300'
+                  }`}>
+                    {s.date}
+                  </span>
                 </div>
-                <p className="font-bold text-xs leading-tight">{s.title}</p>
-                <p className="text-[10px] opacity-75 mt-1 font-mono">{s.date}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
 
-      {/* 2. FINANCIAL OVERVIEW & BALANCE CARD */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4" id="payments">
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">TOTAL PACKAGE FEE</span>
-          <CurrencyDisplay amount={clientData.totalFee} className="text-2xl font-black text-slate-900 dark:text-slate-100 font-mono" />
-          <span className="text-[11px] text-slate-500 block">All inclusive visa service charges</span>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-1">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block">TOTAL AMOUNT PAID</span>
-          <CurrencyDisplay amount={clientData.paidAmount} className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono" />
-          <span className="text-[11px] text-emerald-600 font-bold block">Advance payment received</span>
-        </div>
-
-        <div className="p-5 rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 shadow-xs space-y-1">
-          <span className="text-xs font-bold text-rose-800 dark:text-rose-300 uppercase tracking-wider block">REMAINING BALANCE DUE</span>
-          <CurrencyDisplay amount={clientData.balance} className="text-2xl font-black text-rose-600 dark:text-rose-400 font-mono" />
-          <span className="text-[11px] text-rose-700 dark:text-rose-300 font-semibold block">Due by {clientData.dueDate} before embassy filing</span>
-        </div>
-      </div>
-
-      {/* 3. DOCUMENTS SECTION: REQUIRED & RECEIVED */}
+      {/* 4. MY DOCUMENTS CHECKLIST & VERIFIED VAULT */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6" id="documents">
-        {/* Documents Required Checklist */}
-        <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+        {/* Documents Required */}
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
           <div className="flex justify-between items-center pb-3 border-b border-slate-200 dark:border-slate-800">
             <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-amber-600" />
-              <span>Documents Required Checklist</span>
+              <span>Documents Required From You</span>
             </h3>
             <button
               onClick={() => setIsUploadModalOpen(true)}
-              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1 shadow-sm"
+              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1"
             >
               <Upload className="w-3.5 h-3.5" />
-              <span>Upload Document</span>
+              <span>Upload File</span>
             </button>
           </div>
 
           <div className="space-y-3 text-xs">
             {requiredDocs.map(item => (
-              <div key={item.id} className="p-3.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 flex items-center justify-between gap-3">
+              <div key={item.id} className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex items-center justify-between gap-3">
                 <div className="space-y-0.5 min-w-0">
                   <span className="font-bold text-amber-950 dark:text-amber-200 block text-xs">{item.type}</span>
-                  <p className="text-[11px] text-amber-900/80 dark:text-amber-300/80 truncate">{item.description}</p>
+                  <p className="text-[11px] text-amber-900/80 dark:text-amber-300/80 leading-snug">{item.description}</p>
                 </div>
                 <button
                   onClick={() => {
                     setUploadDocType(item.type);
                     setIsUploadModalOpen(true);
                   }}
-                  className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] shrink-0"
+                  className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] shrink-0"
                 >
-                  Upload File
+                  Upload
                 </button>
               </div>
             ))}
@@ -199,11 +267,11 @@ export const CustomerPortalPage: React.FC = () => {
         </div>
 
         {/* Documents Received & Verified */}
-        <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
+        <div className="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
           <div className="flex justify-between items-center pb-3 border-b border-slate-200 dark:border-slate-800">
             <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Documents Received & Verified</span>
+              <span>Your Verified Documents Vault</span>
             </h3>
             <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
               {receivedDocs.length} Verified
@@ -212,13 +280,13 @@ export const CustomerPortalPage: React.FC = () => {
 
           <div className="space-y-2.5 text-xs">
             {receivedDocs.map(doc => (
-              <div key={doc.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <div key={doc.id} className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <div className="space-y-0.5">
                   <span className="font-bold text-slate-900 dark:text-slate-100 block text-xs">{doc.name}</span>
-                  <span className="text-[10px] text-slate-500 font-semibold">{doc.type} | Uploaded: {doc.date}</span>
+                  <span className="text-[10px] text-slate-500 font-semibold">{doc.type} • Uploaded: {doc.date}</span>
                 </div>
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] border border-emerald-300 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Verified
+                  <CheckCircle className="w-3 h-3 text-emerald-600" /> Verified
                 </span>
               </div>
             ))}
@@ -226,34 +294,53 @@ export const CustomerPortalPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. PAYMENTS & RECEIPTS SECTION */}
-      <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4">
-        <div className="flex justify-between items-center pb-3 border-b border-slate-200 dark:border-slate-800">
+      {/* 5. MY PAYMENTS & RECEIPT OVERVIEW */}
+      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-6" id="payments">
+        <div className="flex justify-between items-center pb-4 border-b border-slate-200 dark:border-slate-800">
           <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <CreditCard className="w-4 h-4 text-blue-600" />
-            <span>Payments History & Official e-Receipts</span>
+            <span>Payments & Official e-Receipts</span>
           </h3>
         </div>
 
-        <div className="space-y-3 text-xs">
+        {/* Financial Cards Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-1">
+            <span className="text-xs font-bold text-slate-500 block uppercase tracking-wider">Total Package Fee</span>
+            <CurrencyDisplay amount={clientData.totalFee} className="text-2xl font-black text-slate-900 dark:text-slate-100 font-mono" />
+            <span className="text-[11px] text-slate-500 block">All inclusive visa service</span>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 space-y-1">
+            <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 block uppercase tracking-wider">Amount Paid</span>
+            <CurrencyDisplay amount={clientData.paidAmount} className="text-2xl font-black text-emerald-600 dark:text-emerald-400 font-mono" />
+            <span className="text-[11px] text-emerald-700 dark:text-emerald-300 font-bold block">{paymentPercentage}% Paid Received</span>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-rose-50/70 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 space-y-1">
+            <span className="text-xs font-bold text-rose-800 dark:text-rose-300 block uppercase tracking-wider">Remaining Balance</span>
+            <CurrencyDisplay amount={clientData.balance} className="text-2xl font-black text-rose-600 dark:text-rose-400 font-mono" />
+            <span className="text-[11px] text-rose-700 dark:text-rose-300 font-bold block">Due by {clientData.dueDate}</span>
+          </div>
+        </div>
+
+        {/* Payment History List */}
+        <div className="space-y-3 text-xs pt-2">
           {paymentsList.map(pmt => (
-            <div key={pmt.id} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div key={pmt.id} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
               <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-900 dark:text-slate-100">{pmt.for}</span>
-                  <span className="font-mono text-purple-600 font-bold text-[11px]">{pmt.receiptNo}</span>
-                </div>
-                <p className="text-[11px] text-slate-500">Date: {pmt.date} | Payment Method: {pmt.method}</p>
+                <span className="font-bold text-slate-900 dark:text-slate-100 text-xs sm:text-sm">{pmt.for}</span>
+                <p className="text-[11px] text-slate-500">Date: {pmt.date} | Receipt #{pmt.receiptNo}</p>
               </div>
 
               <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
                 <CurrencyDisplay amount={pmt.amount} className="text-lg font-black text-emerald-600 font-mono" />
                 <button
                   onClick={() => setViewingReceipt(true)}
-                  className="px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
+                  className="px-3.5 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
                 >
                   <Eye className="w-3.5 h-3.5" />
-                  <span>View e-Receipt</span>
+                  <span>View Receipt</span>
                 </button>
               </div>
             </div>
@@ -261,46 +348,143 @@ export const CustomerPortalPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 5. UPCOMING APPOINTMENTS SECTION */}
-      <div className="p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4" id="appointments">
-        <div className="flex justify-between items-center pb-3 border-b border-slate-200 dark:border-slate-800">
+      {/* 6. MY SCHEDULED APPOINTMENTS */}
+      <div className="p-6 sm:p-8 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xs space-y-4" id="appointments">
+        <div className="flex justify-between items-center pb-4 border-b border-slate-200 dark:border-slate-800">
           <h3 className="text-sm font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <Calendar className="w-4 h-4 text-blue-600" />
-            <span>Upcoming Scheduled Appointments</span>
+            <span>Your Scheduled Appointments</span>
           </h3>
           <button
             onClick={() => setIsBookAptModalOpen(true)}
-            className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
+            className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-1"
           >
-            <Plus className="w-3.5 h-3.5 stroke-[3]" />
-            <span>Request Appointment</span>
+            <Plus className="w-3.5 h-3.5" />
+            <span>Book New Slot</span>
           </button>
         </div>
 
         <div className="space-y-3 text-xs">
           {appointmentsList.map(apt => (
-            <div key={apt.id} className="p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-              <div className="space-y-1">
+            <div key={apt.id} className="p-5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="space-y-1.5">
                 <span className="px-2.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-300">
                   {apt.type}
                 </span>
-                <h4 className="font-black text-slate-900 dark:text-slate-100 text-sm">{apt.title}</h4>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 flex items-center gap-1">
+                <h4 className="font-black text-slate-900 dark:text-slate-100 text-sm sm:text-base">{apt.title}</h4>
+                <p className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-1 font-medium">
                   <MapPin className="w-3.5 h-3.5 text-slate-400" /> {apt.location}
                 </p>
               </div>
 
-              <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-blue-200 text-center font-mono shrink-0">
+              <div className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 text-center font-mono shrink-0">
                 <span className="text-[10px] text-slate-500 font-bold uppercase block">DATE & TIME</span>
                 <span className="text-xs font-bold text-amber-600 block">{apt.date}</span>
-                <span className="text-sm font-black text-blue-600 block">{apt.time}</span>
+                <span className="text-base font-black text-blue-600 block">{apt.time}</span>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* BOOK APPOINTMENT MODAL FOR CLIENT */}
+      {/* 7. NEED HELP / ASSIGNED CONSULTANT SUPPORT CARD */}
+      <div className="p-6 rounded-3xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="flex items-center gap-3 text-xs">
+          <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-md">
+            NF
+          </div>
+          <div>
+            <span className="font-bold text-slate-900 dark:text-slate-100 text-sm block">Assigned Consultant: {clientData.assignedConsultant}</span>
+            <p className="text-slate-500 font-medium">Need help with documents or appointments? We are here to assist you.</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <a
+            href={`https://wa.me/${clientData.consultantPhone.replace(/[^0-9]/g, '')}`}
+            target="_blank"
+            rel="noreferrer"
+            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm"
+          >
+            <MessageCircle className="w-4 h-4" />
+            <span>WhatsApp Support</span>
+          </a>
+        </div>
+      </div>
+
+      {/* UPLOAD DOCUMENT MODAL */}
+      {isUploadModalOpen && (
+        <FormModal
+          isOpen={isUploadModalOpen}
+          onClose={() => setIsUploadModalOpen(false)}
+          title="Upload Document for France Visa Application"
+          subtitle={`Client: ${clientData.customerName} | Case: ${clientData.caseId}`}
+          maxWidth="md"
+        >
+          <form onSubmit={handleUploadSubmit} className="space-y-4 text-xs">
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Document Category</label>
+              <select
+                value={uploadDocType}
+                onChange={(e) => setUploadDocType(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-bold focus:outline-none focus:border-blue-500"
+              >
+                <option value="Bank Statement">6-Month Stamped Bank Statement</option>
+                <option value="NIC Translation">NIC Certified English Translation</option>
+                <option value="Employment Letter">Employment / Leave Approval Letter</option>
+                <option value="Passport Copy">Passport Bio-Page Copy</option>
+                <option value="Other">Other Document</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">File Name / Description</label>
+              <input
+                type="text"
+                placeholder="e.g. Commercial_Bank_Statement_Aug2026.pdf"
+                value={uploadFileName}
+                onChange={(e) => setUploadFileName(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-semibold focus:outline-none focus:border-blue-500"
+              />
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Select File (PDF, PNG, JPG)</label>
+              <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-300 dark:border-slate-800">
+                <Upload className="w-5 h-5 text-slate-400" />
+                <input
+                  type="file"
+                  required
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0] && !uploadFileName) {
+                      setUploadFileName(e.target.files[0].name);
+                    }
+                  }}
+                  className="text-xs text-slate-600 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsUploadModalOpen(false)}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-md"
+              >
+                Submit Document
+              </button>
+            </div>
+          </form>
+        </FormModal>
+      )}
+
+      {/* BOOK APPOINTMENT MODAL */}
       {isBookAptModalOpen && (
         <FormModal
           isOpen={isBookAptModalOpen}
@@ -389,79 +573,7 @@ export const CustomerPortalPage: React.FC = () => {
         </FormModal>
       )}
 
-      {/* UPLOAD DOCUMENT MODAL FOR CLIENT */}
-      {isUploadModalOpen && (
-        <FormModal
-          isOpen={isUploadModalOpen}
-          onClose={() => setIsUploadModalOpen(false)}
-          title="Upload Document for France Visa Application"
-          subtitle={`Client: ${clientData.customerName} | Case: ${clientData.caseId}`}
-          maxWidth="md"
-        >
-          <form onSubmit={handleUploadSubmit} className="space-y-4 text-xs">
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Document Category</label>
-              <select
-                value={uploadDocType}
-                onChange={(e) => setUploadDocType(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-bold focus:outline-none focus:border-blue-500"
-              >
-                <option value="Bank Statement">6-Month Stamped Bank Statement</option>
-                <option value="NIC Translation">NIC Certified English Translation</option>
-                <option value="Employment Letter">Employment / Leave Approval Letter</option>
-                <option value="Passport Copy">Passport Bio-Page Copy</option>
-                <option value="Other">Other Document</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">File Name / Description</label>
-              <input
-                type="text"
-                placeholder="e.g. Commercial_Bank_Statement_Aug2026.pdf"
-                value={uploadFileName}
-                onChange={(e) => setUploadFileName(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-semibold focus:outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Select File (PDF, PNG, JPG)</label>
-              <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-300 dark:border-slate-800">
-                <Upload className="w-5 h-5 text-slate-400" />
-                <input
-                  type="file"
-                  required
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0] && !uploadFileName) {
-                      setUploadFileName(e.target.files[0].name);
-                    }
-                  }}
-                  className="text-xs text-slate-600 dark:text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-blue-50 file:text-blue-700"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setIsUploadModalOpen(false)}
-                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-semibold"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-md"
-              >
-                Submit Document
-              </button>
-            </div>
-          </form>
-        </FormModal>
-      )}
-
-      {/* OFFICIAL E-RECEIPT MODAL VIEW (Download PDF & Print Buttons) */}
+      {/* OFFICIAL E-RECEIPT MODAL VIEW */}
       {viewingReceipt && (
         <FormModal
           isOpen={viewingReceipt}
@@ -470,7 +582,7 @@ export const CustomerPortalPage: React.FC = () => {
           maxWidth="lg"
         >
           <div className="space-y-4 text-xs">
-            {/* Top Fixed Sticky Action Toolbar */}
+            {/* Top Fixed Action Bar */}
             <div className="sticky -top-6 z-30 no-print bg-slate-900 text-white p-3 rounded-xl flex items-center justify-between shadow-md">
               <span className="font-bold text-xs text-emerald-400">Official Receipt Document REC-2026-101</span>
               <div className="flex gap-2">
