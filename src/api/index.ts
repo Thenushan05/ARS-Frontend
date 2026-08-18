@@ -837,6 +837,28 @@ export const suppliersApi = {
     } catch {
       return mockDelay(supplierStore);
     }
+  },
+  create: async (sup: Partial<Supplier>): Promise<Supplier> => {
+    try {
+      const res = await axiosInstance.post('/suppliers', sup);
+      return res.data;
+    } catch {
+      const newSup: Supplier = {
+        id: `sup-${Date.now()}`,
+        supplierName: sup.supplierName || 'New Supplier',
+        company: sup.company || 'New Company Ltd',
+        country: sup.country || 'United Arab Emirates',
+        phone: sup.phone || '+971 4 000 0000',
+        whatsApp: sup.whatsApp || '+971 50 000 0000',
+        services: sup.services || ['e-Visa Processing'],
+        casesHandled: sup.casesHandled || 0,
+        amountPaid: sup.amountPaid || 0,
+        amountPayable: sup.amountPayable || 0,
+        status: sup.status || 'Active'
+      };
+      supplierStore.unshift(newSup);
+      return mockDelay(newSup);
+    }
   }
 };
 
