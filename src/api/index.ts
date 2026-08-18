@@ -569,7 +569,7 @@ export const quotationsApi = {
     } catch {
       const newQuo: Quotation = {
         id: `quo-${Date.now()}`,
-        quotationNumber: `QUO-2026-${Math.floor(100 + Math.random() * 900)}`,
+        quotationNumber: `QT-2026-${Math.floor(1000 + Math.random() * 9000)}`,
         customerId: q.customerId || 'cust-1',
         customerName: q.customerName || 'Dilshan Mendis',
         country: q.country || 'France',
@@ -582,11 +582,37 @@ export const quotationsApi = {
         validityDate: q.validityDate || '2026-08-31',
         paymentTerms: q.paymentTerms || 'Standard Terms',
         termsAndConditions: q.termsAndConditions || 'Standard T&C',
-        status: 'Draft',
+        status: q.status || 'Draft',
         createdAt: new Date().toISOString().split('T')[0]
       };
       quotationStore.unshift(newQuo);
       return mockDelay(newQuo);
+    }
+  },
+  updateStatus: async (id: string, status: Quotation['status']): Promise<Quotation> => {
+    try {
+      const res = await axiosInstance.patch(`/quotations/${id}/status`, { status });
+      return res.data;
+    } catch {
+      const idx = quotationStore.findIndex(q => q.id === id);
+      if (idx !== -1) {
+        quotationStore[idx].status = status;
+        return mockDelay(quotationStore[idx]);
+      }
+      throw new Error('Quotation not found');
+    }
+  },
+  convert: async (id: string): Promise<Quotation> => {
+    try {
+      const res = await axiosInstance.post(`/quotations/${id}/convert`);
+      return res.data;
+    } catch {
+      const idx = quotationStore.findIndex(q => q.id === id);
+      if (idx !== -1) {
+        quotationStore[idx].status = 'Converted';
+        return mockDelay(quotationStore[idx]);
+      }
+      throw new Error('Quotation not found');
     }
   }
 };
