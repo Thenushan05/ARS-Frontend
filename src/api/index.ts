@@ -904,6 +904,26 @@ export const tasksApi = {
       return mockDelay(tasksStore[idx]);
     }
     throw new Error('Task not found');
+  },
+  create: async (t: Partial<TaskItem>): Promise<TaskItem> => {
+    try {
+      const res = await axiosInstance.post('/tasks', t);
+      return res.data;
+    } catch {
+      const newTsk: TaskItem = {
+        id: `tsk-${Date.now()}`,
+        title: t.title || 'New Action Task',
+        type: t.type || 'Call Customer',
+        status: t.status || 'Pending',
+        priority: t.priority || 'Medium',
+        assignedTo: t.assignedTo || 'Saman Jayasinghe',
+        dueDate: t.dueDate || '2026-08-18',
+        customerName: t.customerName,
+        caseId: t.caseId
+      };
+      tasksStore.unshift(newTsk);
+      return mockDelay(newTsk);
+    }
   }
 };
 

@@ -13,6 +13,7 @@ import PageHeader from '../../components/common/PageHeader';
 import PermissionGuard from '../../components/common/PermissionGuard';
 import { useAuth } from '../../context/AuthContext';
 import CurrencyDisplay from '../../components/common/CurrencyDisplay';
+import TodaysTasksWidget from '../../components/dashboard/TodaysTasksWidget';
 
 export const DashboardPage: React.FC = () => {
   const { user, hasPermission } = useAuth();
@@ -61,11 +62,10 @@ export const DashboardPage: React.FC = () => {
         <StatCard title="Today's Registrations" value={5} icon={UserCheck} trend="8%" colorScheme="emerald" subtitle="new clients" />
         <StatCard title="Active Visa Cases" value={68} icon={Briefcase} colorScheme="purple" subtitle="in process" />
         <StatCard title="Pending Documents" value={12} icon={FileCheck} colorScheme="amber" subtitle="action required" />
-        <StatCard title="Upcoming Appointments" value={7} icon={Calendar} colorScheme="blue" subtitle="scheduled today" />
-        <StatCard title="Today's Tasks" value={9} icon={CheckSquare} colorScheme="emerald" subtitle="4 completed" />
-        <StatCard title="Payments Due" value={8} icon={Clock} colorScheme="rose" subtitle="invoices pending" />
-        <StatCard title="Total Receivable" value={4250000} isCurrency icon={TrendingUp} colorScheme="purple" subtitle="outstanding" />
       </div>
+
+      {/* Today's Tasks & Follow-ups Widget */}
+      <TodaysTasksWidget />
 
       {/* Restricted Financial KPIs Guarded by backend permissions */}
       <PermissionGuard permission="finance.profit.view">
