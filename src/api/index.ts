@@ -1,60 +1,27 @@
 import axiosInstance from './axiosInstance';
-import { 
-  CURRENT_USER_MOCK, MOCK_LEADS, MOCK_CUSTOMERS, MOCK_VISA_CASES, 
-  MOCK_EVISAS, MOCK_PRICES, MOCK_PACKAGES, MOCK_QUOTATIONS, MOCK_INVOICES, 
-  MOCK_PAYMENTS, MOCK_RECEIPTS, MOCK_INCOME, MOCK_EXPENSES, MOCK_BANK_ACCOUNTS, 
-  MOCK_TRANSFERS, MOCK_SUPPLIERS, MOCK_STAFF, MOCK_STAFF_PERFORMANCE, 
-  MOCK_TASKS, MOCK_APPOINTMENTS, MOCK_DOCUMENTS 
+import {
+  MOCK_LEADS, MOCK_CUSTOMERS, MOCK_VISA_CASES,
+  MOCK_EVISAS, MOCK_PRICES, MOCK_PACKAGES, MOCK_QUOTATIONS, MOCK_INVOICES,
+  MOCK_PAYMENTS, MOCK_RECEIPTS, MOCK_INCOME, MOCK_EXPENSES, MOCK_BANK_ACCOUNTS,
+  MOCK_TRANSFERS, MOCK_SUPPLIERS, MOCK_STAFF, MOCK_STAFF_PERFORMANCE,
+  MOCK_TASKS, MOCK_APPOINTMENTS, MOCK_DOCUMENTS
 } from './mockData';
-import { 
-  User, Lead, Customer, VisaCase, EVisaService, MasterPriceItem, 
-  PackageItem, Quotation, Invoice, Payment, Receipt, Income, Expense, 
-  BankAccount, AccountTransfer, Supplier, StaffMember, StaffPerformance, 
-  TaskItem, AppointmentItem, DocumentItem, PaginatedResponse, FilterParams 
+import {
+  Lead, Customer, VisaCase, EVisaService, MasterPriceItem,
+  PackageItem, Quotation, Invoice, Payment, Receipt, Income, Expense,
+  BankAccount, AccountTransfer, Supplier, StaffMember, StaffPerformance,
+  TaskItem, AppointmentItem, DocumentItem, PaginatedResponse, FilterParams
 } from '../types';
 
 // Generic helper to simulate API call delay when fallback to mock data occurs
-const mockDelay = <T>(data: T, delay = 200): Promise<T> => 
+const mockDelay = <T>(data: T, delay = 200): Promise<T> =>
   new Promise((resolve) => setTimeout(() => resolve(data), delay));
 
-// AUTH API
-export const authApi = {
-  login: async (email: string, pass: string): Promise<{ token: string; user: User }> => {
-    try {
-      const res = await axiosInstance.post('/auth/login', { email, password: pass });
-      return res.data;
-    } catch {
-      // Mock Fallback
-      if (email === 'consultant@arsvisa.com') {
-        const consultantUser: User = {
-          ...CURRENT_USER_MOCK,
-          id: 'staff-2',
-          name: 'Saman Jayasinghe',
-          email: 'consultant@arsvisa.com',
-          role: 'Visa Consultant',
-          permissions: [
-            'lead.view', 'lead.create', 'lead.edit',
-            'customer.view', 'customer.create',
-            'visa.view', 'visa.create', 'visa.update',
-            'quotation.view', 'quotation.create',
-            'invoice.view', 'payment.view'
-          ]
-        };
-        return mockDelay({ token: 'mock-jwt-token-consultant', user: consultantUser });
-      }
-      return mockDelay({ token: 'mock-jwt-token-admin', user: CURRENT_USER_MOCK });
-    }
-  },
-  getMe: async (): Promise<User> => {
-    try {
-      const res = await axiosInstance.get('/auth/me');
-      return res.data;
-    } catch {
-      const stored = localStorage.getItem('ars_user');
-      return mockDelay(stored ? JSON.parse(stored) : CURRENT_USER_MOCK);
-    }
-  }
-};
+// AUTH API — real backend only, no mock fallback (Phase 1 of the integration: a swallowed auth
+// error must never silently resolve as "logged in as a fake admin"). See ./authApi.ts for the
+// full login/me/logout/2FA surface; re-exported here so existing `import { authApi } from
+// '../../api'` call sites don't need to change.
+export { authApi } from './authApi';
 
 // LEADS API
 let leadsStore = [...MOCK_LEADS];

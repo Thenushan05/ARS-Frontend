@@ -1,37 +1,71 @@
-export type UserRole = 
+// Roles are backend-seeded DB rows (Role.name), not a closed frontend enum — the `(string & {})`
+// member keeps autocomplete for the known seeded names while still accepting whatever a Super
+// Admin creates later via the Roles module (brief §19: role name is a label, never a security
+// boundary — `User.isSuperAdmin` / `permissions` are what actually gate anything).
+export type UserRole =
   | 'Super Admin'
+  | 'Admin'
   | 'Managing Director'
   | 'Manager'
   | 'Visa Consultant'
   | 'Customer Service'
   | 'Accountant'
   | 'Marketing Staff'
-  | 'Customer';
+  | 'Customer'
+  | (string & {});
 
+// The real backend permission-key catalog (Backend `src/common/constants/permissions.constant.ts`,
+// ~90 keys as of this integration) — kept here purely for editor autocomplete; the `(string & {})`
+// member means an unrecognized string still compiles (so this list drifting slightly behind the
+// backend's is a DX papercut, not a build break). Treat the backend's catalog as the source of
+// truth: `GET /permissions` returns it live. Several routes/guards elsewhere in this app still use
+// pre-integration placeholder keys (e.g. `visa.view`, `finance.income.view`, `reports.view`) that
+// don't exist in this catalog — flagged in INTEGRATION_PLAN.md §8 for correction module-by-module,
+// not fixed in this pass to avoid a repo-wide sweep outside Phase 1's scope.
 export type Permission =
-  | 'lead.view' | 'lead.create' | 'lead.edit' | 'lead.delete' | 'lead.convert'
-  | 'customer.view' | 'customer.create' | 'customer.edit' | 'customer.delete'
-  | 'visa.view' | 'visa.create' | 'visa.update' | 'visa.delete'
-  | 'evisa.view' | 'evisa.manage'
-  | 'quotation.view' | 'quotation.create' | 'quotation.edit'
-  | 'invoice.view' | 'invoice.create' | 'invoice.edit'
-  | 'payment.view' | 'payment.create' | 'payment.receipt'
-  | 'pricing.view' | 'pricing.cost.view' | 'pricing.edit'
-  | 'package.view' | 'package.create' | 'package.discount'
-  | 'supplier.view' | 'supplier.create' | 'supplier.cost.view'
-  | 'finance.income.view' | 'finance.expense.view' | 'finance.profit.view' | 'finance.banking.view'
-  | 'staff.manage' | 'staff.performance'
-  | 'reports.view' | 'reports.export'
-  | 'settings.manage';
+  | 'dashboard.view' | 'dashboard.finance.view'
+  | 'lead.view' | 'lead.create' | 'lead.update' | 'lead.convert' | 'lead.archive'
+  | 'customer.view' | 'customer.create' | 'customer.update' | 'customer.archive'
+  | 'case.view' | 'case.create' | 'case.update' | 'case.status.update' | 'case.archive'
+  | 'document.view' | 'document.upload' | 'document.verify' | 'document.delete'
+  | 'requirements.view' | 'requirements.manage'
+  | 'country.view' | 'country.manage' | 'visa_type.view' | 'visa_type.manage'
+  | 'evisa.view' | 'evisa.create' | 'evisa.update' | 'evisa.internal_cost.view'
+  | 'pricing.view' | 'pricing.create' | 'pricing.update' | 'pricing.internal_cost.view'
+  | 'package.view' | 'package.create' | 'package.update' | 'package.discount' | 'package.internal_cost.view'
+  | 'quotation.view' | 'quotation.create' | 'quotation.update' | 'quotation.discount'
+  | 'invoice.view' | 'invoice.create' | 'invoice.update' | 'invoice.discount' | 'invoice.cancel'
+  | 'payment.view' | 'payment.create' | 'payment.reverse'
+  | 'receipt.view' | 'income.view'
+  | 'expense.view' | 'expense.create' | 'expense.update'
+  | 'finance.account.view' | 'finance.account.manage' | 'finance.transfer.create' | 'finance.profit.view'
+  | 'supplier.view' | 'supplier.create' | 'supplier.update' | 'supplier.cost.view' | 'supplier.payment.manage'
+  | 'task.view' | 'task.manage'
+  | 'follow_up.view' | 'follow_up.manage'
+  | 'appointment.view' | 'appointment.manage'
+  | 'visa_decision.view' | 'visa_decision.manage'
+  | 'staff.view' | 'staff.manage' | 'staff.permissions.manage'
+  | 'reports.finance.view' | 'reports.visa.view' | 'reports.marketing.view' | 'reports.staff.view'
+  | 'audit.view' | 'activity.view' | 'login_history.view'
+  | 'settings.view' | 'settings.manage'
+  | 'branch.view' | 'branch.manage'
+  | 'customer_portal.access'
+  | (string & {});
 
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
+  /** Drives all real permission checks (see AuthContext.hasPermission) — mirrors the backend's
+   *  own PermissionsGuard: an isSuperAdmin user always passes, regardless of role name or the
+   *  `permissions` list below. */
+  isSuperAdmin: boolean;
   avatar?: string;
   phone?: string;
   branch?: string;
+  /** Effective permission keys for THIS user, as returned by `GET /auth/me` — role permissions
+   *  merged with their personal grant/revoke overrides, already resolved server-side. */
   permissions: Permission[];
 }
 
