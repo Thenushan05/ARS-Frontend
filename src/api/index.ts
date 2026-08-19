@@ -1,16 +1,16 @@
 import axiosInstance from './axiosInstance';
 import {
-  MOCK_LEADS, MOCK_CUSTOMERS, MOCK_VISA_CASES,
+  MOCK_CUSTOMERS, MOCK_VISA_CASES,
   MOCK_EVISAS, MOCK_PRICES, MOCK_PACKAGES, MOCK_QUOTATIONS, MOCK_INVOICES,
   MOCK_PAYMENTS, MOCK_RECEIPTS, MOCK_INCOME, MOCK_EXPENSES, MOCK_BANK_ACCOUNTS,
   MOCK_TRANSFERS, MOCK_SUPPLIERS, MOCK_STAFF, MOCK_STAFF_PERFORMANCE,
-  MOCK_TASKS, MOCK_APPOINTMENTS, MOCK_DOCUMENTS
+  MOCK_DOCUMENTS
 } from './mockData';
 import {
-  Lead, Customer, VisaCase, EVisaService, MasterPriceItem,
+  Customer, VisaCase, EVisaService, MasterPriceItem,
   PackageItem, Quotation, Invoice, Payment, Receipt, Income, Expense,
   BankAccount, AccountTransfer, Supplier, StaffMember, StaffPerformance,
-  TaskItem, AppointmentItem, DocumentItem, PaginatedResponse, FilterParams
+  DocumentItem, PaginatedResponse, FilterParams
 } from '../types';
 
 // Generic helper to simulate API call delay when fallback to mock data occurs
@@ -23,84 +23,10 @@ const mockDelay = <T>(data: T, delay = 200): Promise<T> =>
 // '../../api'` call sites don't need to change.
 export { authApi } from './authApi';
 
-// LEADS API
-let leadsStore = [...MOCK_LEADS];
-export const leadsApi = {
-  getAll: async (params?: FilterParams): Promise<PaginatedResponse<Lead>> => {
-    try {
-      const res = await axiosInstance.get('/leads', { params });
-      return res.data;
-    } catch {
-      let filtered = [...leadsStore];
-      if (params?.search) {
-        const q = params.search.toLowerCase();
-        filtered = filtered.filter(l => 
-          l.name.toLowerCase().includes(q) || 
-          l.phone.includes(q) || 
-          l.country.toLowerCase().includes(q) ||
-          l.leadId.toLowerCase().includes(q)
-        );
-      }
-      if (params?.status) {
-        filtered = filtered.filter(l => l.status === params.status);
-      }
-      if (params?.source) {
-        filtered = filtered.filter(l => l.source === params.source);
-      }
-      return mockDelay({
-        data: filtered,
-        total: filtered.length,
-        page: params?.page || 1,
-        pageSize: params?.pageSize || 10,
-        totalPages: Math.ceil(filtered.length / (params?.pageSize || 10))
-      });
-    }
-  },
-  create: async (lead: Partial<Lead>): Promise<Lead> => {
-    try {
-      const res = await axiosInstance.post('/leads', lead);
-      return res.data;
-    } catch {
-      const newLead: Lead = {
-        id: `lead-${Date.now()}`,
-        leadId: `LD-${Math.floor(1000 + Math.random() * 9000)}`,
-        name: lead.name || 'New Lead',
-        phone: lead.phone || '',
-        email: lead.email,
-        country: lead.country || 'France',
-        visaType: lead.visaType || 'Tourist Visa',
-        source: lead.source || 'Website',
-        assignedStaff: lead.assignedStaff || 'Saman Jayasinghe',
-        status: lead.status || 'New Lead',
-        notes: lead.notes,
-        followUpDate: lead.followUpDate,
-        createdAt: new Date().toISOString().split('T')[0]
-      };
-      leadsStore.unshift(newLead);
-      return mockDelay(newLead);
-    }
-  },
-  update: async (id: string, updates: Partial<Lead>): Promise<Lead> => {
-    try {
-      const res = await axiosInstance.patch(`/leads/${id}`, updates);
-      return res.data;
-    } catch {
-      const index = leadsStore.findIndex(l => l.id === id);
-      if (index !== -1) {
-        leadsStore[index] = { ...leadsStore[index], ...updates };
-        return mockDelay(leadsStore[index]);
-      }
-      throw new Error('Lead not found');
-    }
-  },
-  delete: async (id: string): Promise<void> => {
-    try {
-      await axiosInstance.delete(`/leads/${id}`);
-    } catch {
-      leadsStore = leadsStore.filter(l => l.id !== id);
-    }
-  }
-};
+// LEADS API — moved to real backend only, no mock fallback, in Phase 2 of the integration.
+// See ./leadsApi.ts (used directly by src/features/leads/hooks/useLeadsQueries.ts) — nothing
+// else in the app still imports the old mock-fallback version, so it's removed rather than kept
+// as dead code (see INTEGRATION_PLAN.md's phase-by-phase mock-removal checklist).
 
 // CUSTOMERS API
 let customersStore = [...MOCK_CUSTOMERS];
@@ -924,77 +850,12 @@ export const staffApi = {
   }
 };
 
-// TASKS & APPOINTMENTS & DOCUMENTS API
-let tasksStore = [...MOCK_TASKS];
-let aptsStore = [...MOCK_APPOINTMENTS];
+// TASKS & APPOINTMENTS moved to real backend only, no mock fallback, in Phase 2 of the
+// integration — see ./tasksApi.ts / ./appointmentsApi.ts. Nothing else still imports the old
+// mock-fallback versions (see INTEGRATION_PLAN.md's phase-by-phase mock-removal checklist).
+
+// DOCUMENTS API
 let docsStore = [...MOCK_DOCUMENTS];
-
-export const tasksApi = {
-  getAll: async (): Promise<TaskItem[]> => {
-    try {
-      const res = await axiosInstance.get('/tasks');
-      return res.data;
-    } catch {
-      return mockDelay(tasksStore);
-    }
-  },
-  toggleStatus: async (id: string): Promise<TaskItem> => {
-    const idx = tasksStore.findIndex(t => t.id === id);
-    if (idx !== -1) {
-      tasksStore[idx].status = tasksStore[idx].status === 'Completed' ? 'Pending' : 'Completed';
-      return mockDelay(tasksStore[idx]);
-    }
-    throw new Error('Task not found');
-  },
-  create: async (t: Partial<TaskItem>): Promise<TaskItem> => {
-    try {
-      const res = await axiosInstance.post('/tasks', t);
-      return res.data;
-    } catch {
-      const newTsk: TaskItem = {
-        id: `tsk-${Date.now()}`,
-        title: t.title || 'New Action Task',
-        type: t.type || 'Call Customer',
-        status: t.status || 'Pending',
-        priority: t.priority || 'Medium',
-        assignedTo: t.assignedTo || 'Saman Jayasinghe',
-        dueDate: t.dueDate || '2026-08-18',
-        customerName: t.customerName,
-        caseId: t.caseId
-      };
-      tasksStore.unshift(newTsk);
-      return mockDelay(newTsk);
-    }
-  }
-};
-
-export const appointmentsApi = {
-  getAll: async (): Promise<AppointmentItem[]> => {
-    try {
-      const res = await axiosInstance.get('/appointments');
-      return res.data;
-    } catch {
-      return mockDelay(aptsStore);
-    }
-  },
-  create: async (apt: Partial<AppointmentItem>): Promise<AppointmentItem> => {
-    const newApt: AppointmentItem = {
-      id: `apt-${Date.now()}`,
-      title: apt.title || 'Consultation Appointment',
-      customerName: apt.customerName || 'Client Name',
-      phone: apt.phone,
-      type: apt.type || 'Office Appointment',
-      date: apt.date || '2026-08-20',
-      time: apt.time || '10:00 AM',
-      location: apt.location || 'Head Office',
-      consultant: apt.consultant || 'Saman Jayasinghe',
-      status: 'Scheduled',
-      notes: apt.notes
-    };
-    aptsStore.unshift(newApt);
-    return mockDelay(newApt);
-  }
-};
 
 export const documentsApi = {
   getAll: async (): Promise<DocumentItem[]> => {

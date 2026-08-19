@@ -90,24 +90,6 @@ export type LeadSource =
   | 'Agent'
   | 'Other';
 
-export interface Lead {
-  id: string;
-  leadId: string;
-  name: string;
-  phone: string;
-  email?: string;
-  country: string;
-  visaType: string;
-  source: LeadSource;
-  assignedStaff: string;
-  assignedStaffId?: string;
-  status: LeadStatus;
-  notes?: string;
-  followUpDate?: string;
-  createdAt: string;
-  updatedAt?: string;
-}
-
 export interface Customer {
   id: string;
   customerId: string; // e.g. ARS-2026-00001
@@ -415,32 +397,6 @@ export interface StaffPerformance {
   paymentsCollected: number;
   conversionRate: number; // percentage
   pendingFollowups: number;
-}
-
-export interface TaskItem {
-  id: string;
-  title: string;
-  type: 'Call Customer' | 'Collect Documents' | 'Check Application' | 'Appointment' | 'Payment Collection' | 'Embassy Follow-up' | 'Agent Follow-up' | 'General';
-  status: 'Pending' | 'In Progress' | 'Completed' | 'Cancelled' | 'Overdue';
-  priority: 'Low' | 'Medium' | 'High';
-  assignedTo: string;
-  dueDate: string;
-  customerName?: string;
-  caseId?: string;
-}
-
-export interface AppointmentItem {
-  id: string;
-  title: string;
-  customerName: string;
-  phone?: string;
-  type: 'Office Appointment' | 'Online Consultation' | 'VFS Appointment' | 'Embassy Appointment' | 'Biometrics' | 'Medical' | 'Interview';
-  date: string;
-  time: string;
-  location?: string;
-  consultant: string;
-  status: 'Scheduled' | 'Completed' | 'Cancelled' | 'Rescheduled';
-  notes?: string;
 }
 
 export interface DocumentItem {

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Plus, User, Phone, Mail, FileText, CreditCard, Calendar, Briefcase, Activity, 
-  Shield, Globe, CheckCircle2, AlertCircle, Edit3, Trash2, ExternalLink
+import {
+  Plus, User, Phone, CreditCard, Briefcase, Globe, CheckCircle2, AlertCircle,
+  Edit3, Archive, RotateCcw, ExternalLink, FileText
 } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import DataTable, { Column } from '../../components/common/DataTable';
@@ -13,132 +13,150 @@ import CustomerRegistrationModal from '../../components/modals/CustomerRegistrat
 import ApplyNewCountryModal from '../../components/modals/ApplyNewCountryModal';
 import EditCustomerModal from '../../components/modals/EditCustomerModal';
 import PermissionGuard from '../../components/common/PermissionGuard';
-import { Customer, VisaCase } from '../../types';
-import { customersApi, visaCasesApi } from '../../api';
 import CurrencyDisplay from '../../components/common/CurrencyDisplay';
+import { Customer as LegacyCustomer, VisaCase } from '../../types';
+import { ApiCustomer } from '../../types/api';
+import { LEAD_SOURCE, MARITAL_STATUS, GENDER, VISA_CATEGORY } from '../../utils/enumLabels';
+import { normalizeApiError } from '../../api/errors';
+import { useCustomers, useArchiveCustomer, useRestoreCustomer } from './hooks/useCustomersQueries';
+
+const PAGE_SIZE = 10;
+
+/**
+ * Adapts a real `ApiCustomer` to the legacy mock `Customer` shape that `ApplyNewCountryModal`
+ * (Phase 3 scope — intentionally left untouched, see INTEGRATION_PLAN.md) still expects as its
+ * `customer` prop. Only the fields that modal actually reads are populated with real data;
+ * `activeCasesCount` has no backend equivalent yet so it's a harmless local-only placeholder that
+ * modal mutates but nothing downstream ever reads.
+ */
+function toLegacyCustomer(c: ApiCustomer): LegacyCustomer {
+  return {
+    id: c.id,
+    customerId: c.customerCode,
+    name: c.fullName,
+    passportNumber: c.passportNumber || '',
+    nic: c.nic || undefined,
+    phone: c.mobile,
+    whatsApp: c.whatsapp || c.mobile,
+    email: c.email || '',
+    occupation: c.occupation || undefined,
+    monthlyIncome: c.monthlyIncome ?? undefined,
+    bankBalance: c.bankBalance ?? undefined,
+    applyingCountry: c.applyingCountry?.name,
+    travelPurpose: c.travelPurpose || undefined,
+    assignedConsultant: c.assignedConsultant?.fullName || '',
+    assignedConsultantId: c.assignedConsultantId || undefined,
+    notes: c.notes || undefined,
+    activeCasesCount: 0,
+    status: c.isArchived ? 'Archived' : 'Active',
+    createdAt: c.createdAt,
+  };
+}
 
 export const CustomersPage: React.FC = () => {
   const navigate = useNavigate();
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'cases' | 'financial' | 'history'>('overview');
-  
+  const [page, setPage] = useState(1);
+  const [selectedCustomer, setSelectedCustomer] = useState<ApiCustomer | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'cases' | 'financial'>('overview');
+
   // Modals state
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [isNewCountryModalOpen, setIsNewCountryModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
-  
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [customerToEdit, setCustomerToEdit] = useState<ApiCustomer | null>(null);
+
+  const [isArchiveConfirmOpen, setIsArchiveConfirmOpen] = useState(false);
+  const [customerToArchive, setCustomerToArchive] = useState<ApiCustomer | null>(null);
 
   // Notification Toast
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
-
-  const fetchCustomers = async () => {
-    setIsLoading(true);
-    try {
-      const res = await customersApi.getAll({ search: searchTerm });
-      setCustomers(res.data);
-    } finally {
-      setIsLoading(false);
-    }
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
+  const notify = (message: string, type: 'success' | 'info' | 'error' = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 6000);
   };
 
-  useEffect(() => {
-    fetchCustomers();
-  }, [searchTerm]);
+  const { data, isLoading } = useCustomers({ search: searchTerm || undefined, page, limit: PAGE_SIZE });
+  const customers = data?.data ?? [];
+  const pagination = data?.pagination;
 
-  const handleRegistrationSuccess = (result: { customer: Customer; isExisting: boolean; newCaseId?: string }) => {
-    fetchCustomers();
-    if (result.isExisting) {
-      setNotification({
-        message: `Existing customer ${result.customer.customerId} (${result.customer.name}) identified! Created New Visa Case ${result.newCaseId || ''} under existing customer without creating a duplicate record.`,
-        type: 'info'
-      });
-    } else {
-      setNotification({
-        message: `Successfully registered new customer ${result.customer.customerId} (${result.customer.name}) and created initial Visa Case ${result.newCaseId || ''}!`,
-        type: 'success'
-      });
-    }
+  const archiveCustomer = useArchiveCustomer();
+  const restoreCustomer = useRestoreCustomer();
 
-    setTimeout(() => {
-      setNotification(null);
-    }, 7000);
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    setPage(1);
+  };
+
+  const handleRegistrationSuccess = (customer: ApiCustomer) => {
+    notify(`Successfully registered new customer ${customer.customerCode} (${customer.fullName})!`, 'success');
   };
 
   const handleNewCountrySuccess = (newCase: VisaCase) => {
-    fetchCustomers();
-    setNotification({
-      message: `Created new Visa Case ${newCase.caseId} for ${newCase.country} (${newCase.visaCategory}) under existing customer ${selectedCustomer?.customerId}!`,
-      type: 'success'
-    });
-    setTimeout(() => {
-      setNotification(null);
-    }, 6000);
+    notify(
+      `Created new Visa Case ${newCase.caseId} for ${newCase.country} (${newCase.visaCategory}) — note: Visa Cases aren't wired to the backend yet (Phase 3), so this record is local-only for now.`,
+      'info'
+    );
   };
 
-  const handleEditSuccess = (updatedCustomer: Customer) => {
-    fetchCustomers();
+  const handleEditSuccess = (updatedCustomer: ApiCustomer) => {
     if (selectedCustomer && selectedCustomer.id === updatedCustomer.id) {
       setSelectedCustomer(updatedCustomer);
     }
-    setNotification({
-      message: `Successfully updated customer details for ${updatedCustomer.name} (${updatedCustomer.customerId})!`,
-      type: 'success'
-    });
-    setTimeout(() => {
-      setNotification(null);
-    }, 6000);
+    notify(`Successfully updated customer details for ${updatedCustomer.fullName} (${updatedCustomer.customerCode})!`, 'success');
   };
 
-  const confirmDeleteCustomer = async (c: Customer) => {
+  const confirmArchiveCustomer = async (c: ApiCustomer) => {
     try {
-      await customersApi.delete(c.id);
+      await archiveCustomer.mutateAsync(c.id);
       if (selectedCustomer?.id === c.id) {
         setSelectedCustomer(null);
       }
-      setIsDeleteConfirmOpen(false);
-      setCustomerToDelete(null);
-      fetchCustomers();
-      setNotification({
-        message: `Permanently deleted customer ${c.name} (${c.customerId}).`,
-        type: 'info'
-      });
-      setTimeout(() => {
-        setNotification(null);
-      }, 5000);
-    } catch (err: any) {
-      alert('Failed to delete customer: ' + err.message);
+      setIsArchiveConfirmOpen(false);
+      setCustomerToArchive(null);
+      notify(`Archived customer ${c.fullName} (${c.customerCode}).`, 'info');
+    } catch (err) {
+      const { message } = normalizeApiError(err);
+      notify(`Failed to archive customer: ${message}`, 'error');
     }
   };
 
-  const columns: Column<Customer>[] = [
-    { 
-      key: 'customerId', 
-      header: 'Customer ID', 
-      render: (c) => <span className="font-mono text-blue-600 dark:text-sky-400 font-bold">{c.customerId}</span> 
+  const handleRestore = async (c: ApiCustomer) => {
+    try {
+      const restored = await restoreCustomer.mutateAsync(c.id);
+      if (selectedCustomer?.id === c.id) {
+        setSelectedCustomer(restored);
+      }
+      notify(`Restored customer ${restored.fullName} (${restored.customerCode}).`, 'success');
+    } catch (err) {
+      const { message } = normalizeApiError(err);
+      notify(`Failed to restore customer: ${message}`, 'error');
+    }
+  };
+
+  const columns: Column<ApiCustomer>[] = [
+    {
+      key: 'customerCode',
+      header: 'Customer Code',
+      render: (c) => <span className="font-mono text-blue-600 dark:text-sky-400 font-bold">{c.customerCode}</span>
     },
-    { 
-      key: 'name', 
-      header: 'Customer Name', 
+    {
+      key: 'fullName',
+      header: 'Customer Name',
       render: (c) => (
         <div>
-          <div className="font-bold text-slate-900 dark:text-slate-100">{c.name}</div>
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">Passport: {c.passportNumber}</div>
+          <div className="font-bold text-slate-900 dark:text-slate-100">{c.fullName}</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">Passport: {c.passportNumber || 'N/A'}</div>
         </div>
       )
     },
-    { 
-      key: 'phone', 
-      header: 'Contact Info', 
+    {
+      key: 'mobile',
+      header: 'Contact Info',
       render: (c) => (
         <div className="text-xs">
-          <div className="text-slate-800 dark:text-slate-200">{c.phone}</div>
-          <div className="text-emerald-600 dark:text-emerald-400 font-medium">WA: {c.whatsApp}</div>
+          <div className="text-slate-800 dark:text-slate-200">{c.mobile}</div>
+          {c.whatsapp && <div className="text-emerald-600 dark:text-emerald-400 font-medium">WA: {c.whatsapp}</div>}
         </div>
       )
     },
@@ -147,42 +165,43 @@ export const CustomersPage: React.FC = () => {
       header: 'Lead Source',
       render: (c) => (
         <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-          {c.leadSource || 'Walk-in'}
+          {c.leadSource ? LEAD_SOURCE.labels[c.leadSource] : 'N/A'}
         </span>
       )
     },
-    { 
-      key: 'assignedConsultant', 
-      header: 'Consultant', 
-      render: (c) => <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">{c.assignedConsultant}</span> 
+    {
+      key: 'assignedConsultant',
+      header: 'Consultant',
+      render: (c) => <span className="text-xs text-slate-700 dark:text-slate-300 font-medium">{c.assignedConsultant?.fullName || 'Unassigned'}</span>
     },
-    { 
-      key: 'activeCasesCount', 
-      header: 'Active Visa Cases', 
-      render: (c) => (
-        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-500/30">
-          {c.activeCasesCount} Cases
-        </span>
-      )
+    {
+      key: 'status',
+      header: 'Status',
+      render: (c) => <StatusBadge status={c.isArchived ? 'ARCHIVED' : 'ACTIVE'} />
     },
-    { key: 'status', header: 'Status', render: (c) => <StatusBadge status={c.status} /> },
-    { key: 'createdAt', header: 'Registered', render: (c) => <span className="text-xs text-slate-500">{c.createdAt}</span> },
+    {
+      key: 'createdAt',
+      header: 'Registered',
+      render: (c) => <span className="text-xs text-slate-500">{new Date(c.createdAt).toLocaleDateString()}</span>
+    },
   ];
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Customer Directory & 360 Profiles"
-        subtitle="Customer Registration (9. CUSTOMER REGISTRATION) — Manage client records, ARS-2026-XXXXX IDs, and multi-country visa applications."
+        subtitle="Customer Registration — Manage client records, ARS-2026-XXXXX IDs, and multi-country visa applications."
         breadcrumbs={[{ label: 'Customers' }]}
         actions={
-          <button
-            onClick={() => setIsRegisterModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-600/20 transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Customer Registration</span>
-          </button>
+          <PermissionGuard permission="customer.create">
+            <button
+              onClick={() => setIsRegisterModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-600/20 transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Customer Registration</span>
+            </button>
+          </PermissionGuard>
         }
       />
 
@@ -191,7 +210,9 @@ export const CustomersPage: React.FC = () => {
         <div className={`p-4 rounded-xl border text-xs flex items-center justify-between shadow-md transition-all ${
           notification.type === 'info'
             ? 'bg-purple-50 dark:bg-purple-950/60 border-purple-200 dark:border-purple-800 text-purple-900 dark:text-purple-200'
-            : 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
+            : notification.type === 'error'
+              ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200'
+              : 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200'
         }`}>
           <div className="flex items-center gap-3">
             <CheckCircle2 className="w-5 h-5 shrink-0" />
@@ -203,16 +224,16 @@ export const CustomersPage: React.FC = () => {
         </div>
       )}
 
-      {/* Search & Actions Bar */}
+      {/* Search Bar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <SearchInput 
-          value={searchTerm} 
-          onChange={setSearchTerm} 
-          placeholder="Search by Customer ID (ARS-2026-00001), Name, Passport, NIC, Phone..." 
-          className="w-full sm:max-w-md" 
+        <SearchInput
+          value={searchTerm}
+          onChange={handleSearchChange}
+          placeholder="Search by Customer Code (ARS-2026-00001), Name, Passport, NIC, Phone..."
+          className="w-full sm:max-w-md"
         />
         <div className="text-xs text-slate-500 font-semibold">
-          Total Registered Customers: <span className="text-blue-600 dark:text-sky-400 font-mono font-bold">{customers.length}</span>
+          Total Registered Customers: <span className="text-blue-600 dark:text-sky-400 font-mono font-bold">{pagination?.total ?? customers.length}</span>
         </div>
       </div>
 
@@ -221,6 +242,10 @@ export const CustomersPage: React.FC = () => {
         columns={columns}
         data={customers}
         isLoading={isLoading}
+        page={pagination?.page ?? page}
+        totalPages={pagination?.pages ?? 1}
+        totalRecords={pagination?.total}
+        onPageChange={setPage}
         onRowClick={(c) => setSelectedCustomer(c)}
         actions={(c) => (
           <div className="flex items-center gap-2 justify-end">
@@ -243,7 +268,7 @@ export const CustomersPage: React.FC = () => {
               <span>Customer Portal</span>
             </button>
 
-            <PermissionGuard permission="customer.edit">
+            <PermissionGuard permission="customer.update">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -257,18 +282,31 @@ export const CustomersPage: React.FC = () => {
               </button>
             </PermissionGuard>
 
-            <PermissionGuard permission="customer.delete">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCustomerToDelete(c);
-                  setIsDeleteConfirmOpen(true);
-                }}
-                className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 hover:bg-rose-100 dark:hover:bg-rose-500/25 transition-all"
-                title="Delete Customer"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+            <PermissionGuard permission="customer.archive">
+              {c.isArchived ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRestore(c);
+                  }}
+                  className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 hover:bg-emerald-100 dark:hover:bg-emerald-500/25 transition-all"
+                  title="Restore Customer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCustomerToArchive(c);
+                    setIsArchiveConfirmOpen(true);
+                  }}
+                  className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 hover:bg-rose-100 dark:hover:bg-rose-500/25 transition-all"
+                  title="Archive Customer"
+                >
+                  <Archive className="w-3.5 h-3.5" />
+                </button>
+              )}
             </PermissionGuard>
           </div>
         )}
@@ -280,7 +318,6 @@ export const CustomersPage: React.FC = () => {
           isOpen={isRegisterModalOpen}
           onClose={() => setIsRegisterModalOpen(false)}
           onSuccess={handleRegistrationSuccess}
-          existingCustomersCount={customers.length}
         />
       )}
 
@@ -297,24 +334,24 @@ export const CustomersPage: React.FC = () => {
         />
       )}
 
-      {/* Delete Confirmation Modal */}
-      {isDeleteConfirmOpen && customerToDelete && (
+      {/* Archive Confirmation Modal */}
+      {isArchiveConfirmOpen && customerToArchive && (
         <FormModal
-          isOpen={isDeleteConfirmOpen}
+          isOpen={isArchiveConfirmOpen}
           onClose={() => {
-            setIsDeleteConfirmOpen(false);
-            setCustomerToDelete(null);
+            setIsArchiveConfirmOpen(false);
+            setCustomerToArchive(null);
           }}
-          title={`Confirm Customer Deletion — ${customerToDelete.customerId}`}
+          title={`Confirm Customer Archive — ${customerToArchive.customerCode}`}
           maxWidth="md"
         >
           <div className="space-y-4 text-xs">
             <div className="p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-200 flex items-start gap-3">
               <AlertCircle className="w-6 h-6 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-sm">Are you sure you want to delete this customer?</p>
+                <p className="font-bold text-sm">Are you sure you want to archive this customer?</p>
                 <p className="mt-1 text-rose-700 dark:text-rose-300">
-                  This will permanently remove <strong>{customerToDelete.name} ({customerToDelete.customerId})</strong>, passport <strong>{customerToDelete.passportNumber}</strong>, and linked application metadata.
+                  <strong>{customerToArchive.fullName} ({customerToArchive.customerCode})</strong> will be marked archived and hidden from active workflows. This can be undone later via Restore.
                 </p>
               </div>
             </div>
@@ -323,8 +360,8 @@ export const CustomersPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setIsDeleteConfirmOpen(false);
-                  setCustomerToDelete(null);
+                  setIsArchiveConfirmOpen(false);
+                  setCustomerToArchive(null);
                 }}
                 className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 font-semibold"
               >
@@ -332,11 +369,11 @@ export const CustomersPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => confirmDeleteCustomer(customerToDelete)}
+                onClick={() => confirmArchiveCustomer(customerToArchive)}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold shadow-lg shadow-rose-600/20"
               >
-                <Trash2 className="w-4 h-4" />
-                <span>Permanently Delete</span>
+                <Archive className="w-4 h-4" />
+                <span>Archive Customer</span>
               </button>
             </div>
           </div>
@@ -348,7 +385,7 @@ export const CustomersPage: React.FC = () => {
         <FormModal
           isOpen={!!selectedCustomer}
           onClose={() => setSelectedCustomer(null)}
-          title={`Customer 360 Profile — ${selectedCustomer.name} (${selectedCustomer.customerId})`}
+          title={`Customer 360 Profile — ${selectedCustomer.fullName} (${selectedCustomer.customerCode})`}
           maxWidth="4xl"
         >
           <div className="space-y-6">
@@ -356,16 +393,18 @@ export const CustomersPage: React.FC = () => {
             <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-lg font-black text-blue-600 dark:text-sky-400">{selectedCustomer.customerId}</span>
-                  <StatusBadge status={selectedCustomer.status} />
+                  <span className="font-mono text-lg font-black text-blue-600 dark:text-sky-400">{selectedCustomer.customerCode}</span>
+                  <StatusBadge status={selectedCustomer.isArchived ? 'ARCHIVED' : 'ACTIVE'} />
                 </div>
-                <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-0.5">{selectedCustomer.name}</p>
-                <p className="text-xs text-slate-500">Passport: <span className="font-mono text-slate-700 dark:text-slate-300 font-semibold">{selectedCustomer.passportNumber}</span> | NIC: <span className="font-mono">{selectedCustomer.nic || 'N/A'}</span></p>
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-0.5">{selectedCustomer.fullName}</p>
+                <p className="text-xs text-slate-500">
+                  Passport: <span className="font-mono text-slate-700 dark:text-slate-300 font-semibold">{selectedCustomer.passportNumber || 'N/A'}</span> | NIC: <span className="font-mono">{selectedCustomer.nic || 'N/A'}</span>
+                </p>
               </div>
 
-              {/* Action Buttons: Edit, Delete, Apply New Country */}
+              {/* Action Buttons: Edit, Archive/Restore, Apply New Country */}
               <div className="flex items-center gap-2 flex-wrap shrink-0">
-                <PermissionGuard permission="customer.edit">
+                <PermissionGuard permission="customer.update">
                   <button
                     onClick={() => {
                       setCustomerToEdit(selectedCustomer);
@@ -378,17 +417,27 @@ export const CustomersPage: React.FC = () => {
                   </button>
                 </PermissionGuard>
 
-                <PermissionGuard permission="customer.delete">
-                  <button
-                    onClick={() => {
-                      setCustomerToDelete(selectedCustomer);
-                      setIsDeleteConfirmOpen(true);
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition-all"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete</span>
-                  </button>
+                <PermissionGuard permission="customer.archive">
+                  {selectedCustomer.isArchived ? (
+                    <button
+                      onClick={() => handleRestore(selectedCustomer)}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition-all"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      <span>Restore</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setCustomerToArchive(selectedCustomer);
+                        setIsArchiveConfirmOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition-all"
+                    >
+                      <Archive className="w-3.5 h-3.5" />
+                      <span>Archive</span>
+                    </button>
+                  )}
                 </PermissionGuard>
 
                 <button
@@ -409,7 +458,7 @@ export const CustomersPage: React.FC = () => {
                   activeTab === 'overview' ? 'border-blue-600 text-blue-600 dark:border-sky-400 dark:text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
-                1. Full Personal & Financial Profile (All Registration Fields)
+                1. Full Personal & Financial Profile
               </button>
               <button
                 onClick={() => setActiveTab('cases')}
@@ -417,7 +466,7 @@ export const CustomersPage: React.FC = () => {
                   activeTab === 'cases' ? 'border-blue-600 text-blue-600 dark:border-sky-400 dark:text-sky-400' : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
-                2. Linked Visa Cases ({selectedCustomer.activeCasesCount})
+                2. Linked Visa Cases
               </button>
               <button
                 onClick={() => setActiveTab('financial')}
@@ -439,13 +488,13 @@ export const CustomersPage: React.FC = () => {
                       <User className="w-3.5 h-3.5 text-blue-600 dark:text-sky-400" />
                       <span>1. Personal Details</span>
                     </p>
-                    <div><span className="text-slate-500">Full Name:</span> <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedCustomer.name}</span></div>
-                    <div><span className="text-slate-500">Passport Number:</span> <span className="font-mono text-blue-600 dark:text-sky-400 font-bold">{selectedCustomer.passportNumber}</span></div>
+                    <div><span className="text-slate-500">Full Name:</span> <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedCustomer.fullName}</span></div>
+                    <div><span className="text-slate-500">Passport Number:</span> <span className="font-mono text-blue-600 dark:text-sky-400 font-bold">{selectedCustomer.passportNumber || 'N/A'}</span></div>
                     <div><span className="text-slate-500">NIC Number:</span> <span className="text-slate-800 dark:text-slate-200 font-mono">{selectedCustomer.nic || 'N/A'}</span></div>
-                    <div><span className="text-slate-500">Date of Birth:</span> <span className="text-slate-800 dark:text-slate-200">{selectedCustomer.dateOfBirth || 'N/A'}</span></div>
-                    <div><span className="text-slate-500">Gender:</span> <span className="text-slate-800 dark:text-slate-200">{selectedCustomer.gender || 'Male'}</span></div>
-                    <div><span className="text-slate-500">Nationality:</span> <span className="text-slate-800 dark:text-slate-200">{selectedCustomer.nationality || 'Sri Lankan'}</span></div>
-                    <div><span className="text-slate-500">Marital Status:</span> <span className="text-slate-800 dark:text-slate-200">{selectedCustomer.maritalStatus || 'Single'}</span></div>
+                    <div><span className="text-slate-500">Date of Birth:</span> <span className="text-slate-800 dark:text-slate-200">{selectedCustomer.dob || 'N/A'}</span></div>
+                    <div><span className="text-slate-500">Gender:</span> <span className="text-slate-800 dark:text-slate-200">{selectedCustomer.gender ? GENDER.labels[selectedCustomer.gender] : 'N/A'}</span></div>
+                    <div><span className="text-slate-500">Nationality:</span> <span className="text-slate-800 dark:text-slate-200">{selectedCustomer.nationality || 'N/A'}</span></div>
+                    <div><span className="text-slate-500">Marital Status:</span> <span className="text-slate-800 dark:text-slate-200">{selectedCustomer.maritalStatus ? MARITAL_STATUS.labels[selectedCustomer.maritalStatus] : 'N/A'}</span></div>
                     <div><span className="text-slate-500">Residential Address:</span> <span className="text-slate-800 dark:text-slate-200">{selectedCustomer.address || 'N/A'}</span></div>
                   </div>
 
@@ -455,12 +504,13 @@ export const CustomersPage: React.FC = () => {
                       <Phone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       <span>2. Contact & Lead Info</span>
                     </p>
-                    <div><span className="text-slate-500">Mobile Phone:</span> <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedCustomer.phone}</span></div>
-                    <div><span className="text-slate-500">WhatsApp Number:</span> <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{selectedCustomer.whatsApp}</span></div>
+                    <div><span className="text-slate-500">Mobile Phone:</span> <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedCustomer.mobile}</span></div>
+                    <div><span className="text-slate-500">WhatsApp Number:</span> <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{selectedCustomer.whatsapp || 'N/A'}</span></div>
                     <div><span className="text-slate-500">Email Address:</span> <span className="text-slate-800 dark:text-slate-200">{selectedCustomer.email || 'N/A'}</span></div>
-                    <div><span className="text-slate-500">Lead Source:</span> <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-bold text-slate-700 dark:text-slate-300">{selectedCustomer.leadSource || 'Walk-in'}</span></div>
-                    <div><span className="text-slate-500">Assigned Consultant:</span> <span className="text-purple-600 dark:text-purple-400 font-semibold">{selectedCustomer.assignedConsultant}</span></div>
-                    <div><span className="text-slate-500">Registration Date:</span> <span className="text-slate-800 dark:text-slate-200">{selectedCustomer.createdAt}</span></div>
+                    <div><span className="text-slate-500">Lead Source:</span> <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 font-bold text-slate-700 dark:text-slate-300">{selectedCustomer.leadSource ? LEAD_SOURCE.labels[selectedCustomer.leadSource] : 'N/A'}</span></div>
+                    <div><span className="text-slate-500">Assigned Consultant:</span> <span className="text-purple-600 dark:text-purple-400 font-semibold">{selectedCustomer.assignedConsultant?.fullName || 'Unassigned'}</span></div>
+                    <div><span className="text-slate-500">Branch:</span> <span className="text-slate-800 dark:text-slate-200">{selectedCustomer.branch?.name || 'N/A'}</span></div>
+                    <div><span className="text-slate-500">Registration Date:</span> <span className="text-slate-800 dark:text-slate-200">{new Date(selectedCustomer.createdAt).toLocaleDateString()}</span></div>
                   </div>
 
                   {/* Financial & Travel Background Block */}
@@ -472,7 +522,7 @@ export const CustomersPage: React.FC = () => {
                     <div><span className="text-slate-500">Occupation / Business:</span> <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedCustomer.occupation || 'N/A'}</span></div>
                     <div>
                       <span className="text-slate-500">Monthly Income:</span>{' '}
-                      {selectedCustomer.monthlyIncome ? (
+                      {selectedCustomer.monthlyIncome != null ? (
                         <CurrencyDisplay amount={selectedCustomer.monthlyIncome} className="font-bold text-emerald-600 dark:text-emerald-400" />
                       ) : (
                         <span className="text-slate-400">N/A</span>
@@ -480,14 +530,14 @@ export const CustomersPage: React.FC = () => {
                     </div>
                     <div>
                       <span className="text-slate-500">Bank Balance:</span>{' '}
-                      {selectedCustomer.bankBalance ? (
+                      {selectedCustomer.bankBalance != null ? (
                         <CurrencyDisplay amount={selectedCustomer.bankBalance} className="font-bold text-blue-600 dark:text-sky-400" />
                       ) : (
                         <span className="text-slate-400">N/A</span>
                       )}
                     </div>
-                    <div><span className="text-slate-500">Applying Country:</span> <span className="font-bold text-slate-800 dark:text-slate-200">{selectedCustomer.applyingCountry || 'France'}</span></div>
-                    <div><span className="text-slate-500">Visa Category:</span> <span className="text-slate-800 dark:text-slate-200">{selectedCustomer.visaCategory || 'Tourist'}</span></div>
+                    <div><span className="text-slate-500">Applying Country:</span> <span className="font-bold text-slate-800 dark:text-slate-200">{selectedCustomer.applyingCountry?.name || 'N/A'}</span></div>
+                    <div><span className="text-slate-500">Visa Category:</span> <span className="text-slate-800 dark:text-slate-200">{selectedCustomer.visaCategory ? VISA_CATEGORY.labels[selectedCustomer.visaCategory] : 'N/A'}</span></div>
                     <div><span className="text-slate-500">Travel Purpose:</span> <span className="text-slate-800 dark:text-slate-200">{selectedCustomer.travelPurpose || 'N/A'}</span></div>
                   </div>
                 </div>
@@ -499,7 +549,11 @@ export const CustomersPage: React.FC = () => {
                       <Briefcase className="w-3.5 h-3.5 text-blue-500" />
                       <span>Previous Visa History</span>
                     </p>
-                    <p className="text-slate-600 dark:text-slate-400 text-xs">{selectedCustomer.previousVisaHistory || 'No prior visa history recorded.'}</p>
+                    <p className="text-slate-600 dark:text-slate-400 text-xs">
+                      {selectedCustomer.hasPreviousVisaHistory
+                        ? selectedCustomer.previousVisaHistoryNotes || 'Marked as having previous visa history (no notes recorded).'
+                        : 'No prior visa history recorded.'}
+                    </p>
                   </div>
 
                   <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
@@ -507,7 +561,11 @@ export const CustomersPage: React.FC = () => {
                       <AlertCircle className="w-3.5 h-3.5" />
                       <span>Previous Refusals</span>
                     </p>
-                    <p className="text-slate-600 dark:text-slate-400 text-xs">{selectedCustomer.previousRefusals || 'None'}</p>
+                    <p className="text-slate-600 dark:text-slate-400 text-xs">
+                      {selectedCustomer.hasPreviousRefusals
+                        ? selectedCustomer.previousRefusalNotes || 'Marked as having previous refusals (no notes recorded).'
+                        : 'None'}
+                    </p>
                   </div>
 
                   <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
@@ -521,11 +579,13 @@ export const CustomersPage: React.FC = () => {
               </div>
             )}
 
-            {/* Tab 2: Linked Visa Cases */}
+            {/* Tab 2: Linked Visa Cases — honest placeholder until the Visa Cases module lands
+                (Phase 3); the "+ Add" action is preserved since it opens ApplyNewCountryModal
+                unchanged, but no fabricated case list is shown here. */}
             {activeTab === 'cases' && (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-slate-500">Multi-country Visa Cases linked under customer profile {selectedCustomer.customerId}:</p>
+                  <p className="text-xs text-slate-500">Visa cases linked to customer profile {selectedCustomer.customerCode}:</p>
                   <button
                     onClick={() => setIsNewCountryModalOpen(true)}
                     className="px-3 py-1.5 rounded-lg bg-purple-600 text-white font-bold text-xs shadow-sm hover:bg-purple-500"
@@ -534,27 +594,20 @@ export const CustomersPage: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-mono text-blue-600 dark:text-sky-400 font-bold">CAS-9001</span>
-                    <p className="font-bold text-slate-800 dark:text-slate-100 text-sm mt-0.5">{selectedCustomer.applyingCountry || 'France'} Schengen {selectedCustomer.visaCategory || 'Tourist'} Visa</p>
-                    <p className="text-slate-500">Consultant: {selectedCustomer.assignedConsultant}</p>
-                  </div>
-                  <StatusBadge status="In Progress" />
+                <div className="p-6 rounded-xl bg-slate-50 dark:bg-slate-950 border border-dashed border-slate-300 dark:border-slate-700 text-center text-xs text-slate-500 dark:text-slate-400">
+                  <Briefcase className="w-6 h-6 mx-auto mb-2 text-slate-400" />
+                  Visa case details will appear here once the Visa Cases module is integrated (Phase 3).
                 </div>
               </div>
             )}
 
-            {/* Tab 3: Financial & Invoices */}
+            {/* Tab 3: Financial & Invoices — honest placeholder until Invoicing lands (Phase 5). */}
             {activeTab === 'financial' && (
               <div className="space-y-3 text-xs">
-                <p className="text-slate-500">Financial Ledger for {selectedCustomer.name}:</p>
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                  <div>
-                    <p className="font-bold text-slate-800 dark:text-slate-100">INV-2026-0501 — {selectedCustomer.applyingCountry || 'France'} Visa Service Package</p>
-                    <p className="text-slate-500 text-[11px]">Paid: LKR 70,000 | Balance: LKR 65,000</p>
-                  </div>
-                  <StatusBadge status="Part Paid" />
+                <p className="text-slate-500">Financial ledger for {selectedCustomer.fullName}:</p>
+                <div className="p-6 rounded-xl bg-slate-50 dark:bg-slate-950 border border-dashed border-slate-300 dark:border-slate-700 text-center text-slate-500 dark:text-slate-400">
+                  <CreditCard className="w-6 h-6 mx-auto mb-2 text-slate-400" />
+                  Invoice and payment details will appear here once Invoicing is integrated (Phase 5).
                 </div>
               </div>
             )}
@@ -562,12 +615,12 @@ export const CustomersPage: React.FC = () => {
         </FormModal>
       )}
 
-      {/* Modal: Apply to Another Country */}
+      {/* Modal: Apply to Another Country (Phase 3 scope — untouched, see toLegacyCustomer above) */}
       {selectedCustomer && isNewCountryModalOpen && (
         <ApplyNewCountryModal
           isOpen={isNewCountryModalOpen}
           onClose={() => setIsNewCountryModalOpen(false)}
-          customer={selectedCustomer}
+          customer={toLegacyCustomer(selectedCustomer)}
           onSuccess={handleNewCountrySuccess}
         />
       )}

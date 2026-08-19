@@ -1,33 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import { CheckSquare, CheckCircle2, Clock, Calendar, ArrowRight, User, Phone, FileText, Bell } from 'lucide-react';
+import React from 'react';
+import { CheckSquare, CheckCircle2, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { TaskItem } from '../../types';
-import { tasksApi } from '../../api';
+import { useTasks, useCompleteTask } from '../../features/tasks/hooks/useTasksQueries';
+import { useAuth } from '../../context/AuthContext';
+import { TASK_TYPE, TASK_PRIORITY, humanizeEnum } from '../../utils/enumLabels';
+import { ApiTask } from '../../types/api';
+
+const NON_TERMINAL_STATUSES: ApiTask['status'][] = ['PENDING', 'IN_PROGRESS', 'OVERDUE'];
 
 export const TodaysTasksWidget: React.FC = () => {
-  const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { hasPermission } = useAuth();
+  const canManage = hasPermission('task.manage');
 
-  const fetchTasks = async () => {
-    setIsLoading(true);
-    try {
-      const data = await tasksApi.getAll();
-      setTasks(data);
-    } finally {
-      setIsLoading(false);
-    }
+  // Small page only — the backend's default order is already `dueDate asc`, so the soonest-due
+  // tasks land first for free without this widget needing its own sort param.
+  const { data, isLoading } = useTasks({ limit: 5 });
+  const completeTask = useCompleteTask();
+
+  const tasks = data?.data ?? [];
+  // Computed from this same small fetched page (not a separate full-count query) — a lightweight
+  // "how many of what you're looking at are still open" badge, not a precise global total.
+  const pendingCount = tasks.filter((t) => NON_TERMINAL_STATUSES.includes(t.status)).length;
+
+  const handleComplete = (id: string) => {
+    if (!canManage) return;
+    completeTask.mutate(id);
   };
-
-  useEffect(() => {
-    fetchTasks();
-  }, []);
-
-  const handleToggle = async (id: string) => {
-    await tasksApi.toggleStatus(id);
-    fetchTasks();
-  };
-
-  const pendingCount = tasks.filter(t => t.status !== 'Completed' && t.status !== 'Cancelled').length;
 
   return (
     <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 p-5 shadow-xs space-y-4">
@@ -39,7 +37,7 @@ export const TodaysTasksWidget: React.FC = () => {
           </div>
           <div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-              <span>Today's Tasks & Follow-ups</span>
+              <span>Today's Tasks &amp; Follow-ups</span>
               <span className="px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 text-[10px] font-bold">
                 {pendingCount} Pending
               </span>
@@ -61,58 +59,64 @@ export const TodaysTasksWidget: React.FC = () => {
       {isLoading ? (
         <div className="p-6 text-center text-xs text-slate-400">Loading tasks...</div>
       ) : tasks.length === 0 ? (
-        <div className="p-6 text-center text-xs text-slate-400 font-medium">No tasks scheduled for today.</div>
+        <div className="p-6 text-center text-xs text-slate-400 font-medium">No tasks scheduled.</div>
       ) : (
         <div className="space-y-2.5">
-          {tasks.slice(0, 5).map((task) => {
-            const isDone = task.status === 'Completed';
+          {tasks.map((task) => {
+            const isDone = task.status === 'COMPLETED';
+            const isCancelled = task.status === 'CANCELLED';
+            const isTerminal = isDone || isCancelled;
 
             return (
               <div
                 key={task.id}
                 className={`p-3 rounded-xl border transition-all flex items-start justify-between gap-3 ${
-                  isDone
+                  isTerminal
                     ? 'bg-slate-50/60 dark:bg-slate-950/40 border-slate-200 dark:border-slate-800/60 opacity-60'
                     : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 hover:border-blue-300 dark:hover:border-blue-800'
                 }`}
               >
                 <div className="flex items-start gap-3 min-w-0">
-                  {/* Checkbox Toggle */}
+                  {/* Checkbox Toggle — one-directional only (backend has no "un-complete"
+                      transition), so a completed/cancelled task's checkbox is inert. */}
                   <button
-                    onClick={() => handleToggle(task.id)}
+                    onClick={() => !isTerminal && handleComplete(task.id)}
+                    disabled={isTerminal || !canManage || completeTask.isPending}
                     className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
                       isDone
                         ? 'bg-emerald-600 border-emerald-600 text-white'
-                        : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 hover:border-emerald-500 text-transparent'
+                        : isCancelled
+                          ? 'bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-transparent'
+                          : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-700 hover:border-emerald-500 text-transparent disabled:hover:border-slate-300 disabled:cursor-not-allowed'
                     }`}
-                    title={isDone ? 'Mark as Pending' : 'Mark Task Completed'}
+                    title={isDone ? 'Completed' : isCancelled ? 'Cancelled' : canManage ? 'Mark Task Completed' : undefined}
                   >
                     <CheckCircle2 className="w-3.5 h-3.5 fill-current stroke-white" />
                   </button>
 
                   <div className="space-y-1 min-w-0">
-                    <p className={`text-xs font-bold truncate ${isDone ? 'line-through text-slate-400' : 'text-slate-900 dark:text-slate-100'}`}>
+                    <p className={`text-xs font-bold truncate ${isTerminal ? 'line-through text-slate-400' : 'text-slate-900 dark:text-slate-100'}`}>
                       {task.title}
                     </p>
 
                     <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
                       {/* Type Badge */}
                       <span className="px-2 py-0.5 rounded font-bold bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                        {task.type}
+                        {TASK_TYPE.labels[task.type] ?? humanizeEnum(task.type)}
                       </span>
 
                       {/* Customer */}
-                      {task.customerName && (
+                      {task.customer && (
                         <span className="text-slate-500 font-semibold truncate max-w-[120px]">
-                          Client: {task.customerName}
+                          Client: {task.customer.fullName}
                         </span>
                       )}
 
                       {/* Priority */}
                       <span className={`px-1.5 py-0.2 font-bold rounded ${
-                        task.priority === 'High' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'
+                        task.priority === 'HIGH' || task.priority === 'URGENT' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'
                       }`}>
-                        {task.priority}
+                        {TASK_PRIORITY.labels[task.priority] ?? humanizeEnum(task.priority)}
                       </span>
                     </div>
                   </div>
@@ -120,13 +124,19 @@ export const TodaysTasksWidget: React.FC = () => {
 
                 {/* Due Date & Action */}
                 <div className="text-right shrink-0">
-                  <span className="text-[10px] font-semibold text-slate-500 block">{task.dueDate}</span>
-                  <button
-                    onClick={() => handleToggle(task.id)}
-                    className="text-[11px] font-bold text-emerald-600 hover:underline mt-1 block"
-                  >
-                    {isDone ? 'Reopen' : 'Done'}
-                  </button>
+                  <span className="text-[10px] font-semibold text-slate-500 block">{task.dueDate ?? '—'}</span>
+                  {!isTerminal && canManage && (
+                    <button
+                      onClick={() => handleComplete(task.id)}
+                      disabled={completeTask.isPending}
+                      className="text-[11px] font-bold text-emerald-600 hover:underline mt-1 block disabled:opacity-50"
+                    >
+                      Done
+                    </button>
+                  )}
+                  {isCancelled && (
+                    <span className="text-[11px] font-bold text-slate-400 mt-1 block">Cancelled</span>
+                  )}
                 </div>
               </div>
             );

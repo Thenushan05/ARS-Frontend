@@ -726,21 +726,20 @@ export const PaymentsPage: React.FC = () => {
         <CustomerRegistrationModal
           isOpen={isCustomerRegOpen}
           onClose={() => setIsCustomerRegOpen(false)}
-          onSuccess={(result) => {
+          onSuccess={(customer) => {
             setIsCustomerRegOpen(false);
             fetchData();
             setFormData(prev => ({
               ...prev,
-              customerId: result.customer.id,
-              customerName: result.customer.name
+              customerId: customer.id,
+              customerName: customer.fullName
             }));
             setNotification({
-              message: `Registered new customer "${result.customer.name}" (${result.customer.customerId}) and auto-selected for payment!`,
+              message: `Registered new customer "${customer.fullName}" (${customer.customerCode}) and auto-selected for payment!`,
               type: 'success'
             });
             setTimeout(() => setNotification(null), 5000);
           }}
-          existingCustomersCount={customers.length}
         />
       )}
     </div>
