@@ -381,7 +381,8 @@ export const eVisaApi = {
         supplierCost: item.supplierCost,
         otherCost: item.otherCost,
         arsServiceCharge: item.arsServiceCharge,
-        estimatedProfit: item.estimatedProfit
+        estimatedProfit: item.estimatedProfit,
+        applicationLink: item.applicationLink
       };
       evisaStore.unshift(newItem);
       return mockDelay(newItem);
@@ -420,6 +421,15 @@ export const eVisaApi = {
         return mockDelay(evisaStore[index]);
       }
       throw new Error('e-Visa not found');
+    }
+  },
+  delete: async (id: string): Promise<boolean> => {
+    try {
+      await axiosInstance.delete(`/evisa/${id}`);
+      return true;
+    } catch {
+      evisaStore = evisaStore.filter(e => e.id !== id);
+      return mockDelay(true);
     }
   }
 };

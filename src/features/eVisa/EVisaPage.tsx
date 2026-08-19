@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Plus, Globe, Shield, Lock, CheckCircle2, Search, Filter, Edit, Eye, 
-  ToggleLeft, ToggleRight, DollarSign, Clock, Calendar, AlertCircle
+  ToggleLeft, ToggleRight, DollarSign, Clock, Calendar, AlertCircle, ExternalLink, Trash2
 } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import DataTable, { Column } from '../../components/common/DataTable';
@@ -50,6 +50,7 @@ export const EVisaPage: React.FC = () => {
     customerSellingPrice: 35000,
     currency: 'LKR',
     status: 'Active' as 'Active' | 'Inactive',
+    applicationLink: '',
     // Guarded fields
     governmentFee: 18000,
     supplierCost: 5000,
@@ -93,6 +94,7 @@ export const EVisaPage: React.FC = () => {
         customerSellingPrice: evisa.customerSellingPrice,
         currency: evisa.currency || 'LKR',
         status: evisa.status,
+        applicationLink: evisa.applicationLink || '',
         governmentFee: evisa.governmentFee || 0,
         supplierCost: evisa.supplierCost || 0,
         otherCost: evisa.otherCost || 0,
@@ -111,6 +113,7 @@ export const EVisaPage: React.FC = () => {
         customerSellingPrice: 35000,
         currency: 'LKR',
         status: 'Active',
+        applicationLink: '',
         governmentFee: 18000,
         supplierCost: 5000,
         otherCost: 2000,
@@ -160,6 +163,18 @@ export const EVisaPage: React.FC = () => {
     setTimeout(() => setNotification(null), 5000);
   };
 
+  const handleDelete = async (evisa: EVisaService) => {
+    if (window.confirm(`Are you sure you want to delete ${evisa.country} — ${evisa.visaName}?`)) {
+      await eVisaApi.delete(evisa.id);
+      fetchEVisas();
+      setNotification({
+        message: `Successfully deleted e-Visa product "${evisa.country} — ${evisa.visaName}".`,
+        type: 'info'
+      });
+      setTimeout(() => setNotification(null), 5000);
+    }
+  };
+
   // Standard 10 Fields + 5 Guarded Financial Columns
   const columns: Column<EVisaService>[] = [
     { 
@@ -176,6 +191,22 @@ export const EVisaPage: React.FC = () => {
       key: 'visaName', 
       header: 'Visa Name', 
       render: (ev) => <span className="font-bold text-slate-800 dark:text-slate-200 text-xs">{ev.visaName}</span> 
+    },
+    {
+      key: 'applicationLink',
+      header: 'Application Link',
+      render: (ev) => ev.applicationLink ? (
+        <a 
+          href={ev.applicationLink} 
+          target="_blank" 
+          rel="noreferrer"
+          className="text-blue-600 dark:text-sky-400 hover:underline flex items-center gap-1 text-xs"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ExternalLink className="w-3 h-3" />
+          Apply Now
+        </a>
+      ) : <span className="text-slate-400 text-xs">-</span>
     },
     { 
       key: 'entryType', 
@@ -383,6 +414,17 @@ export const EVisaPage: React.FC = () => {
                 {ev.status === 'Active' ? <ToggleRight className="w-3.5 h-3.5 text-rose-600" /> : <ToggleLeft className="w-3.5 h-3.5 text-emerald-600" />}
                 <span>{ev.status === 'Active' ? 'Deactivate' : 'Activate'}</span>
               </button>
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(ev);
+                }}
+                className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 hover:bg-rose-100 transition-all"
+                title="Delete e-Visa Product"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             </PermissionGuard>
           </div>
         )}
@@ -507,6 +549,19 @@ export const EVisaPage: React.FC = () => {
                   <option value="Inactive">Inactive</option>
                 </select>
               </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                  Application Link
+                </label>
+                <input
+                  type="url"
+                  value={formData.applicationLink}
+                  onChange={(e) => setFormData({ ...formData, applicationLink: e.target.value })}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:border-blue-500"
+                />
+              </div>
             </div>
 
             {/* Financial Cost Fields (Authorized User Only) */}
@@ -618,6 +673,14 @@ export const EVisaPage: React.FC = () => {
               <div><span className="text-slate-500">Validity Duration:</span> <span className="font-medium text-slate-800 dark:text-slate-200">{viewingEVisa.validity}</span></div>
               <div><span className="text-slate-500">Max Stay Period:</span> <span className="font-medium text-slate-800 dark:text-slate-200">{viewingEVisa.stayPeriod}</span></div>
               <div><span className="text-slate-500">Processing Time:</span> <span className="font-bold text-amber-600 dark:text-amber-400">{viewingEVisa.processingTime}</span></div>
+              {viewingEVisa.applicationLink && (
+                <div>
+                  <span className="text-slate-500">Application Link:</span>{' '}
+                  <a href={viewingEVisa.applicationLink} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-sky-400 hover:underline font-medium">
+                    {viewingEVisa.applicationLink}
+                  </a>
+                </div>
+              )}
               <div><span className="text-slate-500">Last Updated:</span> <span className="text-slate-800 dark:text-slate-200">{viewingEVisa.lastUpdated}</span></div>
             </div>
 
