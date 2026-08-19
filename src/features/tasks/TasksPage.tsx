@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  CheckSquare, Plus, Clock, User, CheckCircle2, Filter, 
-  Search, AlertCircle, Phone, FileCheck, Calendar, DollarSign, Building2, Send
+import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import {
+  CheckSquare, Plus, Clock, CheckCircle2, Filter, AlertCircle, Lock, Pencil, XCircle,
 } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import DataTable, { Column } from '../../components/common/DataTable';
@@ -10,219 +10,301 @@ import StatCard from '../../components/common/StatCard';
 import SearchInput from '../../components/common/SearchInput';
 import FormModal from '../../components/modals/FormModal';
 import PermissionGuard from '../../components/common/PermissionGuard';
-import { TaskItem, Customer } from '../../types';
-import { tasksApi, customersApi } from '../../api';
+import { useAuth } from '../../context/AuthContext';
+import { useStaffOptions } from '../../hooks/useStaffOptions';
+import { customersApi } from '../../api/customersApi';
+import { queryKeys } from '../../api/queryKeys';
+import { normalizeApiError } from '../../api/errors';
+import { TASK_TYPE, TASK_PRIORITY, TASK_STATUS, humanizeEnum } from '../../utils/enumLabels';
+import { ApiTask, ApiTaskType, ApiTaskPriority, ApiTaskStatus, CreateTaskInput } from '../../types/api';
+import { useTasks, useCreateTask, useUpdateTask, useCompleteTask, useCancelTask } from './hooks/useTasksQueries';
 
-type TaskType = 
-  | 'Call Customer'
-  | 'Collect Documents'
-  | 'Check Application'
-  | 'Appointment'
-  | 'Payment Collection'
-  | 'Embassy Follow-up'
-  | 'Agent Follow-up'
-  | 'General';
+const PAGE_SIZE = 10;
 
-type TaskStatus = 'Pending' | 'In Progress' | 'Completed' | 'Cancelled' | 'Overdue';
+// Priority uses its own small color map, keyed on the REAL ApiTaskPriority enum values
+// (LOW/MEDIUM/HIGH/URGENT) — StatusBadge's keyword-based color matching has no entries for any
+// of these, so every priority would render as its flat grey fallback there.
+const PRIORITY_STYLES: Record<ApiTaskPriority, string> = {
+  LOW: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+  MEDIUM: 'bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800',
+  HIGH: 'bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 border-rose-200 dark:border-rose-800',
+  URGENT: 'bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-800',
+};
 
-const TASK_TYPES: TaskType[] = [
-  'Call Customer',
-  'Collect Documents',
-  'Check Application',
-  'Appointment',
-  'Payment Collection',
-  'Embassy Follow-up',
-  'Agent Follow-up',
-  'General'
-];
+const TERMINAL_STATUSES: ApiTaskStatus[] = ['COMPLETED', 'CANCELLED'];
 
-const TASK_STATUSES: TaskStatus[] = [
-  'Pending',
-  'In Progress',
-  'Completed',
-  'Cancelled',
-  'Overdue'
-];
+interface TaskFormState {
+  title: string;
+  type: ApiTaskType;
+  priority: ApiTaskPriority;
+  assignedToId: string;
+  dueDate: string;
+  customerId: string;
+  caseId: string;
+}
+
+const emptyForm: TaskFormState = {
+  title: '',
+  type: 'CALL_CUSTOMER',
+  priority: 'MEDIUM',
+  assignedToId: '',
+  dueDate: '',
+  customerId: '',
+  caseId: '',
+};
+
+function toFormState(task: ApiTask): TaskFormState {
+  return {
+    title: task.title,
+    type: task.type,
+    priority: task.priority,
+    assignedToId: task.assignedToId ?? '',
+    dueDate: task.dueDate ? task.dueDate.slice(0, 10) : '',
+    customerId: task.customerId ?? '',
+    caseId: task.caseId ?? '',
+  };
+}
 
 export const TasksPage: React.FC = () => {
-  const [tasks, setTasks] = useState<TaskItem[]>([]);
-  const [filteredTasks, setFilteredTasks] = useState<TaskItem[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { hasPermission } = useAuth();
+  const canView = hasPermission('task.view');
+  const canManage = hasPermission('task.manage');
 
-  // Search & Filter State
+  // Server-side filters — these three ARE real, implemented backend query params (unlike `search`).
+  const [typeFilter, setTypeFilter] = useState<ApiTaskType | ''>('');
+  const [statusFilter, setStatusFilter] = useState<ApiTaskStatus | ''>('');
+  const [priorityFilter, setPriorityFilter] = useState<ApiTaskPriority | ''>('');
+  const [page, setPage] = useState(1);
+
+  // Client-side only — `search` is accepted by the backend's TaskQueryDto but silently ignored
+  // server-side (no text-search branch in TasksService.findAll), so this only filters the
+  // currently-fetched page in memory rather than being sent as a query param.
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState<string>('All');
-  const [selectedStatus, setSelectedStatus] = useState<string>('All');
-  const [selectedPriority, setSelectedPriority] = useState<string>('All');
 
-  // Create Task Form State
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [title, setTitle] = useState('');
-  const [type, setType] = useState<TaskType>('Call Customer');
-  const [priority, setPriority] = useState<'Low' | 'Medium' | 'High'>('High');
-  const [assignedTo, setAssignedTo] = useState('Saman Jayasinghe');
-  const [dueDate, setDueDate] = useState('2026-08-18');
-  const [customerName, setCustomerName] = useState('');
-  const [caseId, setCaseId] = useState('');
-
-  // Toast notification
-  const [notification, setNotification] = useState<string | null>(null);
-
-  const fetchTasks = async () => {
-    setIsLoading(true);
-    try {
-      const [taskData, custRes] = await Promise.all([
-        tasksApi.getAll(),
-        customersApi.getAll()
-      ]);
-      setTasks(taskData);
-      setCustomers(Array.isArray(custRes) ? custRes : (custRes as any).items || []);
-    } finally {
-      setIsLoading(false);
-    }
+  const listFilters = {
+    type: typeFilter || undefined,
+    status: statusFilter || undefined,
+    priority: priorityFilter || undefined,
+    page,
+    limit: PAGE_SIZE,
   };
 
-  useEffect(() => {
-    fetchTasks();
-  }, []);
+  const tasksQuery = useTasks(listFilters, { enabled: canView });
 
-  // Filter & Search Logic
-  useEffect(() => {
-    let result = [...tasks];
+  // KPI counts — each a cheap `limit: 1` request read only for its `pagination.total`, independent
+  // of the table's own type/status/priority filters (a KPI card should reflect the whole board, not
+  // whatever the user currently has the table filtered down to). There's no dedicated stats
+  // endpoint, so this reuses the same list endpoint per status bucket rather than fetching every
+  // task unpaginated (which the old mock-era page did, and which no longer scales server-side).
+  const totalCountQuery = useTasks({ limit: 1 }, { enabled: canView });
+  const pendingCountQuery = useTasks({ limit: 1, status: 'PENDING' }, { enabled: canView });
+  const inProgressCountQuery = useTasks({ limit: 1, status: 'IN_PROGRESS' }, { enabled: canView });
+  const overdueCountQuery = useTasks({ limit: 1, status: 'OVERDUE' }, { enabled: canView });
+  const completedCountQuery = useTasks({ limit: 1, status: 'COMPLETED' }, { enabled: canView });
 
-    if (selectedType !== 'All') {
-      result = result.filter(t => t.type === selectedType);
-    }
+  const totalTasksCount = totalCountQuery.data?.pagination.total ?? 0;
+  const pendingCount = (pendingCountQuery.data?.pagination.total ?? 0) + (inProgressCountQuery.data?.pagination.total ?? 0);
+  const overdueCount = overdueCountQuery.data?.pagination.total ?? 0;
+  const completedCount = completedCountQuery.data?.pagination.total ?? 0;
 
-    if (selectedStatus !== 'All') {
-      result = result.filter(t => t.status === selectedStatus);
-    }
+  const { options: staffOptions } = useStaffOptions();
 
-    if (selectedPriority !== 'All') {
-      result = result.filter(t => t.priority === selectedPriority);
-    }
+  // Lookup-list shim for the "associated customer" picker, same shape as useStaffOptions — only
+  // fetched for a caller who could actually see the result, and shares its cache entry with the
+  // Customers module's own `queryKeys.customers.list` key.
+  const canViewCustomers = hasPermission('customer.view');
+  const customersQuery = useQuery({
+    queryKey: queryKeys.customers.list({ limit: 100 }),
+    queryFn: () => customersApi.getAll({ limit: 100 }),
+    enabled: canViewCustomers,
+    staleTime: 5 * 60 * 1000,
+  });
+  const customerOptions = customersQuery.data?.data ?? [];
 
-    if (searchTerm) {
-      const q = searchTerm.toLowerCase();
-      result = result.filter(t => 
-        t.title.toLowerCase().includes(q) ||
-        (t.customerName && t.customerName.toLowerCase().includes(q)) ||
-        (t.caseId && t.caseId.toLowerCase().includes(q)) ||
-        t.assignedTo.toLowerCase().includes(q)
-      );
-    }
+  const createTask = useCreateTask();
+  const updateTask = useUpdateTask();
+  const completeTask = useCompleteTask();
+  const cancelTask = useCancelTask();
 
-    setFilteredTasks(result);
-  }, [tasks, selectedType, selectedStatus, selectedPriority, searchTerm]);
+  // Create / Edit modal (one shared modal, mirroring the Leads module's isAddEditModalOpen /
+  // editingLead convention) — editingTask null means "create new".
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<ApiTask | null>(null);
+  const [formState, setFormState] = useState<TaskFormState>(emptyForm);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  // Toggle Task Status (Allow staff to mark complete / reopen)
-  const handleToggleStatus = async (id: string) => {
-    try {
-      const updated = await tasksApi.toggleStatus(id);
-      setNotification(`Task "${updated.title}" status updated to ${updated.status}!`);
-      setTimeout(() => setNotification(null), 4000);
-      fetchTasks();
-    } catch {
-      alert('Error updating task status.');
-    }
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const notify = (message: string, type: 'success' | 'error' = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 5000);
   };
 
-  // Submit New Task Form
-  const handleCreateTask = async (e: React.FormEvent) => {
+  const openCreateModal = () => {
+    setEditingTask(null);
+    setFormState(emptyForm);
+    setFormError(null);
+    setIsFormModalOpen(true);
+  };
+
+  const openEditModal = (task: ApiTask) => {
+    setEditingTask(task);
+    setFormState(toFormState(task));
+    setFormError(null);
+    setIsFormModalOpen(true);
+  };
+
+  const closeFormModal = () => {
+    setIsFormModalOpen(false);
+    setEditingTask(null);
+    setFormError(null);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-      const created = await tasksApi.create({
-        title,
-        type,
-        priority,
-        assignedTo,
-        dueDate,
-        customerName: customerName || undefined,
-        caseId: caseId || undefined,
-        status: 'Pending'
+    setFormError(null);
+
+    const input: CreateTaskInput = {
+      title: formState.title.trim(),
+      type: formState.type,
+      priority: formState.priority,
+      assignedToId: formState.assignedToId || undefined,
+      dueDate: formState.dueDate || undefined,
+      customerId: formState.customerId || undefined,
+      caseId: formState.caseId.trim() || undefined,
+    };
+
+    if (editingTask) {
+      updateTask.mutate(
+        { id: editingTask.id, input },
+        {
+          onSuccess: (updated) => {
+            notify(`Task "${updated.title}" updated successfully.`);
+            closeFormModal();
+          },
+          onError: (err) => setFormError(normalizeApiError(err).message),
+        },
+      );
+    } else {
+      createTask.mutate(input, {
+        onSuccess: (created) => {
+          notify(`Task "${created.title}" created successfully.`);
+          closeFormModal();
+        },
+        onError: (err) => setFormError(normalizeApiError(err).message),
       });
-
-      setNotification(`New task "${created.title}" created successfully!`);
-      setTimeout(() => setNotification(null), 5000);
-      setIsCreateModalOpen(false);
-      fetchTasks();
-
-      // Reset form
-      setTitle('');
-      setCustomerName('');
-      setCaseId('');
-    } catch {
-      alert('Error creating task.');
     }
   };
 
-  // KPI Computations
-  const totalTasksCount = tasks.length;
-  const pendingCount = tasks.filter(t => t.status === 'Pending' || t.status === 'In Progress').length;
-  const overdueCount = tasks.filter(t => t.status === 'Overdue').length;
-  const completedCount = tasks.filter(t => t.status === 'Completed').length;
+  const handleComplete = (task: ApiTask) => {
+    completeTask.mutate(task.id, {
+      onSuccess: () => notify(`Task "${task.title}" marked completed.`),
+      onError: (err) => notify(normalizeApiError(err).message, 'error'),
+    });
+  };
 
-  const columns: Column<TaskItem>[] = [
-    { 
-      key: 'title', 
-      header: 'Task Title & Client', 
+  const handleCancel = (task: ApiTask) => {
+    cancelTask.mutate(task.id, {
+      onSuccess: () => notify(`Task "${task.title}" cancelled.`),
+      onError: (err) => notify(normalizeApiError(err).message, 'error'),
+    });
+  };
+
+  const allTasks = tasksQuery.data?.data ?? [];
+  const filteredTasks = searchTerm
+    ? allTasks.filter((t) => {
+        const q = searchTerm.toLowerCase();
+        return (
+          t.title.toLowerCase().includes(q) ||
+          (t.customer?.fullName.toLowerCase().includes(q) ?? false) ||
+          (t.customer?.customerCode.toLowerCase().includes(q) ?? false) ||
+          (t.assignedTo?.fullName.toLowerCase().includes(q) ?? false) ||
+          (t.caseId?.toLowerCase().includes(q) ?? false)
+        );
+      })
+    : allTasks;
+
+  const columns: Column<ApiTask>[] = [
+    {
+      key: 'title',
+      header: 'Task Title & Client',
       render: (t) => (
         <div>
-          <div className={`font-bold text-xs ${t.status === 'Completed' ? 'line-through text-slate-400' : 'text-slate-900 dark:text-slate-100'}`}>
+          <div className={`font-bold text-xs ${t.status === 'COMPLETED' ? 'line-through text-slate-400' : 'text-slate-900 dark:text-slate-100'}`}>
             {t.title}
           </div>
           <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
-            {t.customerName && <span className="font-semibold text-slate-700 dark:text-slate-300">Client: {t.customerName}</span>}
-            {t.caseId && <span className="font-mono text-purple-600 font-bold text-[10px]">{t.caseId}</span>}
+            {t.customer && <span className="font-semibold text-slate-700 dark:text-slate-300">Client: {t.customer.fullName}</span>}
+            {t.caseId && (
+              <span className="font-mono text-purple-600 font-bold text-[10px]" title={t.caseId}>
+                {t.caseId.slice(0, 8)}…
+              </span>
+            )}
           </div>
         </div>
-      ) 
+      ),
     },
-    { 
-      key: 'type', 
-      header: 'Task Type (8 Categories)', 
+    {
+      key: 'type',
+      header: 'Task Type',
       render: (t) => (
         <span className="px-2.5 py-0.5 rounded text-xs font-bold bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 whitespace-nowrap">
-          {t.type}
+          {TASK_TYPE.labels[t.type] ?? humanizeEnum(t.type)}
         </span>
-      ) 
+      ),
     },
-    { 
-      key: 'priority', 
-      header: 'Priority', 
+    {
+      key: 'priority',
+      header: 'Priority',
       render: (t) => (
-        <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${
-          t.priority === 'High' ? 'bg-rose-100 text-rose-800 border border-rose-200' : 
-          t.priority === 'Medium' ? 'bg-amber-100 text-amber-800 border border-amber-200' : 
-          'bg-slate-100 text-slate-700 border border-slate-200'
-        }`}>
-          {t.priority}
+        <span className={`text-[11px] font-bold px-2 py-0.5 rounded border ${PRIORITY_STYLES[t.priority]}`}>
+          {TASK_PRIORITY.labels[t.priority] ?? humanizeEnum(t.priority)}
         </span>
-      ) 
+      ),
     },
-    { 
-      key: 'assignedTo', 
-      header: 'Assigned Staff', 
-      render: (t) => <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">{t.assignedTo}</span> 
+    {
+      key: 'assignedTo',
+      header: 'Assigned Staff',
+      render: (t) => (
+        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+          {t.assignedTo?.fullName ?? <span className="text-slate-400 font-normal italic">Unassigned</span>}
+        </span>
+      ),
     },
-    { 
-      key: 'dueDate', 
-      header: 'Due Date', 
-      render: (t) => <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">{t.dueDate}</span> 
+    {
+      key: 'dueDate',
+      header: 'Due Date',
+      render: (t) => (
+        <span className="text-xs font-mono font-bold text-amber-600 dark:text-amber-400">
+          {t.dueDate ? t.dueDate.slice(0, 10) : '—'}
+          {t.dueTime ? ` ${t.dueTime}` : ''}
+        </span>
+      ),
     },
-    { 
-      key: 'status', 
-      header: 'Status (5 Options)', 
-      render: (t) => {
-        if (t.status === 'Completed') return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">Completed</span>;
-        if (t.status === 'In Progress') return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-300">In Progress</span>;
-        if (t.status === 'Overdue') return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">Overdue</span>;
-        if (t.status === 'Cancelled') return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-600 border border-slate-300">Cancelled</span>;
-        return <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">Pending</span>;
-      } 
+    {
+      key: 'status',
+      header: 'Status',
+      render: (t) => <StatusBadge status={t.status} />,
     },
   ];
+
+  if (!canView) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Tasks & Follow-up Scheduler"
+          subtitle="Manage phone calls, VFS document checks, payment collection follow-ups, and embassy tracking action items."
+          breadcrumbs={[{ label: 'Tasks' }]}
+        />
+        <div className="p-6 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-center space-y-2">
+          <Lock className="w-8 h-8 text-amber-600 mx-auto" />
+          <h4 className="font-bold text-amber-900 dark:text-amber-100 text-sm">Access Restricted</h4>
+          <p className="text-amber-800 dark:text-amber-200 text-xs">
+            You do not have the required permission (<code className="font-mono text-purple-700">task.view</code>) to view tasks.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -232,9 +314,9 @@ export const TasksPage: React.FC = () => {
           subtitle="Manage phone calls, VFS document checks, payment collection follow-ups, and embassy tracking action items."
           breadcrumbs={[{ label: 'Tasks' }]}
           actions={
-            <PermissionGuard permission="lead.edit">
+            <PermissionGuard permission="task.manage">
               <button
-                onClick={() => setIsCreateModalOpen(true)}
+                onClick={openCreateModal}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all active:scale-95"
               >
                 <Plus className="w-4 h-4 stroke-[3]" />
@@ -246,9 +328,21 @@ export const TasksPage: React.FC = () => {
 
         {/* Toast Notification */}
         {notification && (
-          <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100 text-xs font-bold flex items-center justify-between shadow-xs">
-            <span>{notification}</span>
-            <button onClick={() => setNotification(null)} className="text-emerald-600 font-bold hover:underline">Dismiss</button>
+          <div
+            className={`p-4 rounded-xl border text-xs font-bold flex items-center justify-between shadow-xs ${
+              notification.type === 'success'
+                ? 'bg-emerald-50 dark:bg-emerald-950/80 border-emerald-200 dark:border-emerald-800 text-emerald-900 dark:text-emerald-100'
+                : 'bg-rose-50 dark:bg-rose-950/80 border-rose-200 dark:border-rose-800 text-rose-900 dark:text-rose-100'
+            }`}
+          >
+            <span>{notification.message}</span>
+            <button onClick={() => setNotification(null)} className="font-bold hover:underline">Dismiss</button>
+          </div>
+        )}
+
+        {tasksQuery.isError && (
+          <div className="p-4 rounded-xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-200 text-sm font-medium">
+            {normalizeApiError(tasksQuery.error).message}
           </div>
         )}
 
@@ -260,59 +354,56 @@ export const TasksPage: React.FC = () => {
           <StatCard title="Completed Tasks" value={completedCount} icon={CheckCircle2} colorScheme="emerald" subtitle="successfully resolved" />
         </div>
 
-        {/* Search & 3 Filters Bar */}
+        {/* Search & Filters Bar */}
         <div className="flex flex-col lg:flex-row gap-4 justify-between items-center bg-white dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
-          <SearchInput 
-            value={searchTerm} 
-            onChange={setSearchTerm} 
-            placeholder="Search tasks, client names, or staff..." 
-            className="w-full lg:w-72" 
+          <SearchInput
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Search within this page (title, client, staff)..."
+            className="w-full lg:w-72"
           />
 
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto text-xs">
-            {/* 1. Task Type Filter (8 Categories) */}
             <div className="flex items-center gap-1.5">
               <Filter className="w-3.5 h-3.5 text-slate-400" />
               <span className="font-bold text-slate-600 dark:text-slate-400">Type:</span>
               <select
-                value={selectedType}
-                onChange={(e) => setSelectedType(e.target.value)}
+                value={typeFilter}
+                onChange={(e) => { setTypeFilter(e.target.value as ApiTaskType | ''); setPage(1); }}
                 className="px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-bold focus:outline-none focus:border-blue-500"
               >
-                <option value="All">All Types (8)</option>
-                {TASK_TYPES.map(t => (
-                  <option key={t} value={t}>{t}</option>
+                <option value="">All Types</option>
+                {TASK_TYPE.values.map((t) => (
+                  <option key={t} value={t}>{TASK_TYPE.labels[t]}</option>
                 ))}
               </select>
             </div>
 
-            {/* 2. Status Filter (5 Statuses) */}
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-slate-600 dark:text-slate-400">Status:</span>
               <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value)}
+                value={statusFilter}
+                onChange={(e) => { setStatusFilter(e.target.value as ApiTaskStatus | ''); setPage(1); }}
                 className="px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-bold focus:outline-none focus:border-blue-500"
               >
-                <option value="All">All Statuses (5)</option>
-                {TASK_STATUSES.map(s => (
-                  <option key={s} value={s}>{s}</option>
+                <option value="">All Statuses</option>
+                {TASK_STATUS.values.map((s) => (
+                  <option key={s} value={s}>{TASK_STATUS.labels[s]}</option>
                 ))}
               </select>
             </div>
 
-            {/* 3. Priority Filter */}
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-slate-600 dark:text-slate-400">Priority:</span>
               <select
-                value={selectedPriority}
-                onChange={(e) => setSelectedPriority(e.target.value)}
+                value={priorityFilter}
+                onChange={(e) => { setPriorityFilter(e.target.value as ApiTaskPriority | ''); setPage(1); }}
                 className="px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-bold focus:outline-none focus:border-blue-500"
               >
-                <option value="All">All Priorities</option>
-                <option value="High">High Priority</option>
-                <option value="Medium">Medium Priority</option>
-                <option value="Low">Low Priority</option>
+                <option value="">All Priorities</option>
+                {TASK_PRIORITY.values.map((p) => (
+                  <option key={p} value={p}>{TASK_PRIORITY.labels[p]}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -322,35 +413,71 @@ export const TasksPage: React.FC = () => {
         <DataTable
           columns={columns}
           data={filteredTasks}
-          isLoading={isLoading}
+          isLoading={tasksQuery.isLoading}
           emptyText="No matching tasks or follow-ups found."
-          actions={(t) => (
-            <button
-              onClick={() => handleToggleStatus(t.id)}
-              className={`px-3 py-1 rounded-lg border text-xs font-bold flex items-center gap-1 transition-all ${
-                t.status === 'Completed'
-                  ? 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200'
-                  : 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-600 shadow-xs'
-              }`}
-              title={t.status === 'Completed' ? 'Reopen Task' : 'Mark Task Completed'}
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>{t.status === 'Completed' ? 'Reopen' : 'Mark Complete'}</span>
-            </button>
-          )}
+          page={page}
+          totalPages={tasksQuery.data?.pagination.pages ?? 1}
+          totalRecords={tasksQuery.data?.pagination.total}
+          onPageChange={setPage}
+          actions={
+            canManage
+              ? (t) => {
+                  const isTerminal = TERMINAL_STATUSES.includes(t.status);
+                  return (
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button
+                        onClick={() => openEditModal(t)}
+                        className="p-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+                        title="Edit Task"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      {!isTerminal && (
+                        <>
+                          <button
+                            onClick={() => handleComplete(t)}
+                            disabled={completeTask.isPending}
+                            className="px-3 py-1 rounded-lg border text-xs font-bold flex items-center gap-1 transition-all bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-600 shadow-xs disabled:opacity-50"
+                            title="Mark Task Completed"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Complete</span>
+                          </button>
+                          <button
+                            onClick={() => handleCancel(t)}
+                            disabled={cancelTask.isPending}
+                            className="px-3 py-1 rounded-lg border text-xs font-bold flex items-center gap-1 transition-all bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50"
+                            title="Cancel Task"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>Cancel</span>
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  );
+                }
+              : undefined
+          }
         />
       </div>
 
-      {/* Create New Task Form Modal */}
-      {isCreateModalOpen && (
+      {/* Create / Edit Task Form Modal */}
+      {isFormModalOpen && (
         <FormModal
-          isOpen={isCreateModalOpen}
-          onClose={() => setIsCreateModalOpen(false)}
-          title="Create New Action Task / Follow-up"
-          subtitle="Assign tasks to consultants across the 8 standard ARS task categories"
+          isOpen={isFormModalOpen}
+          onClose={closeFormModal}
+          title={editingTask ? 'Edit Task / Follow-up' : 'Create New Action Task / Follow-up'}
+          subtitle="Assign tasks to consultants across the standard ARS task categories"
           maxWidth="lg"
         >
-          <form onSubmit={handleCreateTask} className="space-y-4 text-xs">
+          <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+            {formError && (
+              <div className="p-3 rounded-lg bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 font-semibold">
+                {formError}
+              </div>
+            )}
+
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Task Title / Description <span className="text-rose-500">*</span>
@@ -359,8 +486,8 @@ export const TasksPage: React.FC = () => {
                 type="text"
                 required
                 placeholder="e.g. Call Kavinda Perera regarding France Schengen checklist"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                value={formState.title}
+                onChange={(e) => setFormState({ ...formState, title: e.target.value })}
                 className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-semibold focus:outline-none focus:border-blue-500"
               />
             </div>
@@ -368,16 +495,16 @@ export const TasksPage: React.FC = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Task Type (8 Categories) <span className="text-rose-500">*</span>
+                  Task Type <span className="text-rose-500">*</span>
                 </label>
                 <select
                   required
-                  value={type}
-                  onChange={(e) => setType(e.target.value as TaskType)}
+                  value={formState.type}
+                  onChange={(e) => setFormState({ ...formState, type: e.target.value as ApiTaskType })}
                   className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-bold focus:outline-none focus:border-blue-500"
                 >
-                  {TASK_TYPES.map(t => (
-                    <option key={t} value={t}>{t}</option>
+                  {TASK_TYPE.values.map((t) => (
+                    <option key={t} value={t}>{TASK_TYPE.labels[t]}</option>
                   ))}
                 </select>
               </div>
@@ -385,13 +512,13 @@ export const TasksPage: React.FC = () => {
               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Priority</label>
                 <select
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value as any)}
+                  value={formState.priority}
+                  onChange={(e) => setFormState({ ...formState, priority: e.target.value as ApiTaskPriority })}
                   className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-bold focus:outline-none focus:border-blue-500"
                 >
-                  <option value="High">High Priority</option>
-                  <option value="Medium">Medium Priority</option>
-                  <option value="Low">Low Priority</option>
+                  {TASK_PRIORITY.values.map((p) => (
+                    <option key={p} value={p}>{TASK_PRIORITY.labels[p]}</option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -399,25 +526,33 @@ export const TasksPage: React.FC = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Assigned Staff Member</label>
-                <select
-                  value={assignedTo}
-                  onChange={(e) => setAssignedTo(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-bold focus:outline-none focus:border-blue-500"
-                >
-                  <option value="Saman Jayasinghe">Saman Jayasinghe</option>
-                  <option value="Nimali Fernando">Nimali Fernando</option>
-                  <option value="Thenushan Sritharan">Thenushan Sritharan</option>
-                  <option value="Kasun Perera">Kasun Perera</option>
-                </select>
+                {hasPermission('staff.view') ? (
+                  <select
+                    value={formState.assignedToId}
+                    onChange={(e) => setFormState({ ...formState, assignedToId: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-bold focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="">-- Unassigned --</option>
+                    {staffOptions.map((s) => (
+                      <option key={s.id} value={s.id}>{s.fullName}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    disabled
+                    value="No permission to view staff"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-400 italic"
+                  />
+                )}
               </div>
 
               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Due Date</label>
                 <input
                   type="date"
-                  required
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
+                  value={formState.dueDate}
+                  onChange={(e) => setFormState({ ...formState, dueDate: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-semibold focus:outline-none focus:border-blue-500"
                 />
               </div>
@@ -426,25 +561,34 @@ export const TasksPage: React.FC = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Associated Client (Optional)</label>
-                <select
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-semibold focus:outline-none focus:border-blue-500"
-                >
-                  <option value="">-- None / General Task --</option>
-                  {customers.map(c => (
-                    <option key={c.id} value={c.name}>{c.name} ({c.customerId})</option>
-                  ))}
-                </select>
+                {canViewCustomers ? (
+                  <select
+                    value={formState.customerId}
+                    onChange={(e) => setFormState({ ...formState, customerId: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-semibold focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="">-- None / General Task --</option>
+                    {customerOptions.map((c) => (
+                      <option key={c.id} value={c.id}>{c.fullName} ({c.customerCode})</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    disabled
+                    value="No permission to view customers"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-800 text-slate-400 italic"
+                  />
+                )}
               </div>
 
               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Case Reference ID (Optional)</label>
                 <input
                   type="text"
-                  placeholder="e.g. CAS-9002"
-                  value={caseId}
-                  onChange={(e) => setCaseId(e.target.value)}
+                  placeholder="Paste the case's UUID"
+                  value={formState.caseId}
+                  onChange={(e) => setFormState({ ...formState, caseId: e.target.value })}
                   className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-mono font-bold focus:outline-none focus:border-blue-500"
                 />
               </div>
@@ -453,16 +597,17 @@ export const TasksPage: React.FC = () => {
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
               <button
                 type="button"
-                onClick={() => setIsCreateModalOpen(false)}
+                onClick={closeFormModal}
                 className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-semibold"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-md"
+                disabled={createTask.isPending || updateTask.isPending}
+                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-md disabled:opacity-50"
               >
-                Schedule Task
+                {editingTask ? 'Save Changes' : 'Schedule Task'}
               </button>
             </div>
           </form>

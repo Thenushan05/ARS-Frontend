@@ -1,8 +1,8 @@
-import { 
-  User, Lead, Customer, VisaCase, EVisaService, MasterPriceItem, 
-  PackageItem, Quotation, Invoice, Payment, Receipt, Income, Expense, 
-  BankAccount, AccountTransfer, Supplier, StaffMember, StaffPerformance, 
-  TaskItem, AppointmentItem, DocumentItem 
+import {
+  User, Customer, VisaCase, EVisaService, MasterPriceItem,
+  PackageItem, Quotation, Invoice, Payment, Receipt, Income, Expense,
+  BankAccount, AccountTransfer, Supplier, StaffMember, StaffPerformance,
+  DocumentItem
 } from '../types';
 
 export const CURRENT_USER_MOCK: User = {
@@ -31,89 +31,6 @@ export const CURRENT_USER_MOCK: User = {
     'settings.manage'
   ]
 };
-
-export const MOCK_LEADS: Lead[] = [
-  {
-    id: 'lead-1',
-    leadId: 'LD-1001',
-    name: 'Kavinda Perera',
-    phone: '+94 71 234 5678',
-    email: 'kavinda.p@gmail.com',
-    country: 'France',
-    visaType: 'Tourist Visa',
-    source: 'Facebook',
-    assignedStaff: 'Saman Jayasinghe',
-    assignedStaffId: 'staff-2',
-    status: 'New Lead',
-    notes: 'Interested in Schengen tourist visa for summer holiday.',
-    followUpDate: '2026-08-20',
-    createdAt: '2026-08-15'
-  },
-  {
-    id: 'lead-2',
-    leadId: 'LD-1002',
-    name: 'Anjali Silva',
-    phone: '+94 77 987 6543',
-    email: 'anjali.silva@yahoo.com',
-    country: 'United Kingdom',
-    visaType: 'Student Visa',
-    source: 'Instagram',
-    assignedStaff: 'Nimali Fernando',
-    assignedStaffId: 'staff-3',
-    status: 'Interested',
-    notes: 'Master degree offer letter received from University of Leeds.',
-    followUpDate: '2026-08-18',
-    createdAt: '2026-08-14'
-  },
-  {
-    id: 'lead-3',
-    leadId: 'LD-1003',
-    name: 'Rohan Wickramasinghe',
-    phone: '+94 70 333 4455',
-    email: 'rohan.w@outlook.com',
-    country: 'Canada',
-    visaType: 'Work Visa',
-    source: 'Google',
-    assignedStaff: 'Saman Jayasinghe',
-    assignedStaffId: 'staff-2',
-    status: 'Appointment',
-    notes: 'LMIA approval received. Consultation scheduled.',
-    followUpDate: '2026-08-19',
-    createdAt: '2026-08-12'
-  },
-  {
-    id: 'lead-4',
-    leadId: 'LD-1004',
-    name: 'Dilshan Mendis',
-    phone: '+94 76 555 1212',
-    email: 'dilshan.m@gmail.com',
-    country: 'United Arab Emirates',
-    visaType: 'e-Visa',
-    source: 'TikTok',
-    assignedStaff: 'Nimali Fernando',
-    assignedStaffId: 'staff-3',
-    status: 'Registered',
-    notes: 'Converted to customer CUST-5001.',
-    followUpDate: '2026-08-17',
-    createdAt: '2026-08-10'
-  },
-  {
-    id: 'lead-5',
-    leadId: 'LD-1005',
-    name: 'Nimmi Rajapaksha',
-    phone: '+94 72 888 9900',
-    email: 'nimmi.r@gmail.com',
-    country: 'Australia',
-    visaType: 'Tourist Visa',
-    source: 'Walk-in',
-    assignedStaff: 'Thenushan Sritharan',
-    assignedStaffId: 'user-001',
-    status: 'Follow-up Later',
-    notes: 'Waiting for bank statement balance requirement.',
-    followUpDate: '2026-08-25',
-    createdAt: '2026-08-08'
-  }
-];
 
 export const MOCK_CUSTOMERS: Customer[] = [
   {
@@ -852,70 +769,6 @@ export const MOCK_STAFF_PERFORMANCE: StaffPerformance[] = [
     paymentsCollected: 2890000,
     conversionRate: 40.3,
     pendingFollowups: 3
-  }
-];
-
-export const MOCK_TASKS: TaskItem[] = [
-  {
-    id: 'tsk-1',
-    title: 'Call Kavinda Perera regarding France Schengen checklist',
-    type: 'Call Customer',
-    status: 'Pending',
-    priority: 'High',
-    assignedTo: 'Saman Jayasinghe',
-    dueDate: '2026-08-18',
-    customerName: 'Kavinda Perera'
-  },
-  {
-    id: 'tsk-2',
-    title: 'Collect bank statement from Sanduni De Silva for VFS appointment',
-    type: 'Collect Documents',
-    status: 'In Progress',
-    priority: 'High',
-    assignedTo: 'Nimali Fernando',
-    dueDate: '2026-08-19',
-    customerName: 'Sanduni De Silva',
-    caseId: 'CAS-9002'
-  },
-  {
-    id: 'tsk-3',
-    title: 'Follow up with Gulf Express regarding Dilshan UAE eVisa status',
-    type: 'Agent Follow-up',
-    status: 'Pending',
-    priority: 'Medium',
-    assignedTo: 'Saman Jayasinghe',
-    dueDate: '2026-08-17',
-    customerName: 'Dilshan Mendis',
-    caseId: 'CAS-9001'
-  }
-];
-
-export const MOCK_APPOINTMENTS: AppointmentItem[] = [
-  {
-    id: 'apt-1',
-    title: 'France Schengen VFS Submission & Biometrics',
-    customerName: 'Sanduni De Silva',
-    phone: '+94 77 444 3322',
-    type: 'VFS Appointment',
-    date: '2026-08-22',
-    time: '09:30 AM',
-    location: 'VFS Global, Access Tower 2, Colombo 02',
-    consultant: 'Nimali Fernando',
-    status: 'Scheduled',
-    notes: 'Bring original passport and all verified documents.'
-  },
-  {
-    id: 'apt-2',
-    title: 'Canada Visa Consultation & Profile Review',
-    customerName: 'Rohan Wickramasinghe',
-    phone: '+94 70 333 4455',
-    type: 'Office Appointment',
-    date: '2026-08-19',
-    time: '02:00 PM',
-    location: 'ARS Head Office, Colombo',
-    consultant: 'Saman Jayasinghe',
-    status: 'Scheduled',
-    notes: 'Review LMIA approval letter and employment certificates.'
   }
 ];
 
