@@ -1,21 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Eye, EyeOff, Lock, Mail, ArrowRight, ShieldCheck, AlertCircle, 
-  Loader2, CheckCircle2, KeyRound, Sparkles, UserCheck
+import {
+  Eye, EyeOff, Lock, Mail, ArrowRight, ShieldCheck, AlertCircle,
+  Loader2, CheckCircle2, KeyRound, UserCheck
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { authApi } from '../../api/authApi';
+import { normalizeApiError } from '../../api/errors';
 import FormModal from '../../components/modals/FormModal';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  // Saved Email preference
-  const savedEmail = localStorage.getItem('ars_remembered_email') || 'admin@arsvisa.com';
+  // Saved Email preference (only ever a remembered email, never a password)
+  const savedEmail = localStorage.getItem('ars_remembered_email') || '';
 
   const [email, setEmail] = useState(savedEmail);
-  const [password, setPassword] = useState('admin123');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -44,8 +46,11 @@ export const LoginPage: React.FC = () => {
     try {
       await login(email, password, rememberMe);
       navigate('/dashboard');
-    } catch (err: any) {
-      const message = err.response?.data?.message || err.message || 'Invalid credentials or authentication error. Please try again.';
+    } catch (err) {
+      // login() throws a plain Error for the not-yet-built 2FA path (see AuthContext); anything
+      // else is a real Axios rejection from POST /auth/login, normalized to the backend's actual
+      // error envelope rather than guessing at err.response.data shape here.
+      const message = err instanceof Error && !('response' in err) ? err.message : normalizeApiError(err).message;
       setErrorMsg(message);
     } finally {
       setIsLoading(false);
@@ -57,17 +62,17 @@ export const LoginPage: React.FC = () => {
     if (!forgotEmail) return;
 
     setForgotSubmitting(true);
-    // Simulate API password reset request
-    setTimeout(() => {
+    try {
+      // Real POST /auth/forgot-password — the backend always returns a generic success message
+      // regardless of whether the email exists, to avoid account enumeration.
+      await authApi.forgotPassword(forgotEmail);
+      setForgotSuccessMsg(`If an account exists for ${forgotEmail}, password reset instructions have been sent. Please check your inbox.`);
+    } catch (err) {
+      setForgotSuccessMsg(null);
+      setErrorMsg(normalizeApiError(err).message);
+    } finally {
       setForgotSubmitting(false);
-      setForgotSuccessMsg(`Password reset link and security instructions have been dispatched to ${forgotEmail}. Please check your inbox.`);
-    }, 1000);
-  };
-
-  const setDemoPreset = (presetEmail: string) => {
-    setEmail(presetEmail);
-    setPassword(presetEmail.includes('admin') ? 'admin123' : 'staff123');
-    setErrorMsg('');
+    }
   };
 
   return (
@@ -207,38 +212,15 @@ export const LoginPage: React.FC = () => {
             </button>
           </form>
 
-          {/* Quick Demo Credentials Presets */}
+          {/* Customer Portal link — separate OTP-based auth, unrelated to the staff login above */}
           <div className="pt-4 border-t border-slate-200/80 text-center space-y-2">
-            <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider flex items-center justify-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-              <span>Demo Preset Quick Login</span>
-            </p>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => setDemoPreset('admin@arsvisa.com')}
-                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-rose-700 border border-slate-200 font-bold transition-all text-left text-[11px] flex items-center justify-between"
-              >
-                <span>Super Admin</span>
-                <span className="text-[9px] font-mono opacity-70">admin@</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setDemoPreset('consultant@arsvisa.com')}
-                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-emerald-700 border border-slate-200 font-bold transition-all text-left text-[11px] flex items-center justify-between"
-              >
-                <span>Visa Consultant</span>
-                <span className="text-[9px] font-mono opacity-70">staff@</span>
-              </button>
-            </div>
-            
             <button
               type="button"
               onClick={() => navigate('/portal')}
               className="w-full px-3 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 text-white font-bold transition-all text-xs flex items-center justify-center gap-2 shadow-md hover:from-blue-500 hover:to-indigo-600 mt-2"
             >
               <UserCheck className="w-4 h-4" />
-              <span>Customer Portal Demo (Sanduni De Silva)</span>
+              <span>Go to Customer Portal</span>
             </button>
           </div>
         </div>

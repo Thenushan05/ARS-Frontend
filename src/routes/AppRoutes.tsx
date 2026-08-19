@@ -30,17 +30,20 @@ import AuditLogsPage from '../features/security/AuditLogsPage';
 import CustomerLayout from '../layouts/CustomerLayout';
 import CustomerPortalPage from '../features/portal/CustomerPortalPage';
 import PermissionGuard from '../components/common/PermissionGuard';
+import ProtectedRoute from './ProtectedRoute';
 
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
 
-      {/* Customer Portal Layout & Route */}
+      {/* Customer Portal Layout & Route — separate OTP-based auth (CustomerPortalAuthGuard on the
+          backend), deliberately NOT gated by the staff ProtectedRoute below. */}
       <Route path="/portal" element={<CustomerLayout />}>
         <Route index element={<CustomerPortalPage />} />
       </Route>
 
+      <Route element={<ProtectedRoute />}>
       <Route path="/" element={<MainLayout />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
@@ -174,6 +177,7 @@ export const AppRoutes: React.FC = () => {
             <AuditLogsPage />
           </PermissionGuard>
         } />
+      </Route>
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

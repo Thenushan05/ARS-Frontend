@@ -10,6 +10,7 @@ export const CURRENT_USER_MOCK: User = {
   name: 'Thenushan Sritharan',
   email: 'admin@arsvisa.com',
   role: 'Super Admin',
+  isSuperAdmin: true,
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=250',
   phone: '+94 77 123 4567',
   branch: 'Colombo Main Branch',

@@ -1,26 +1,14 @@
 import React, { useState } from 'react';
-import { Bell, Search, LogOut, User as UserIcon, Shield, ChevronDown } from 'lucide-react';
+import { Bell, Search, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { UserRole } from '../../types';
 
 interface NavbarProps {
   collapsed: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = () => {
-  const { user, logout, switchRole } = useAuth();
+  const { user, logout } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showRoleSelector, setShowRoleSelector] = useState(false);
-
-  const rolesList: UserRole[] = [
-    'Super Admin',
-    'Managing Director',
-    'Manager',
-    'Visa Consultant',
-    'Customer Service',
-    'Accountant',
-    'Marketing Staff'
-  ];
 
   return (
     <header className="no-print sticky top-0 z-30 h-16 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 transition-colors duration-200">
@@ -37,45 +25,6 @@ export const Navbar: React.FC<NavbarProps> = () => {
 
         {/* Right Action Icons */}
         <div className="flex items-center gap-3 sm:gap-4 ml-auto">
-
-          {/* Quick Role Switcher */}
-          <div className="relative">
-            <button
-              onClick={() => setShowRoleSelector(!showRoleSelector)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-purple-200 dark:border-purple-500/30 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 text-xs font-semibold hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-all"
-              title="Test role permission view"
-            >
-              <Shield className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-              <span>Role: {user?.role}</span>
-              <ChevronDown className="w-3 h-3 ml-0.5 opacity-70" />
-            </button>
-
-            {showRoleSelector && (
-              <div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-2 z-50">
-                <p className="px-2 py-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                  Switch Active Role (UI Demo)
-                </p>
-                <div className="space-y-1 mt-1">
-                  {rolesList.map((r) => (
-                    <button
-                      key={r}
-                      onClick={() => {
-                        switchRole(r);
-                        setShowRoleSelector(false);
-                      }}
-                      className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        user?.role === r
-                          ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 font-bold'
-                          : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
-                      }`}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
 
           {/* Notifications */}
           <button className="relative p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-900 border border-transparent hover:border-slate-200 dark:hover:border-slate-800 transition-all">
