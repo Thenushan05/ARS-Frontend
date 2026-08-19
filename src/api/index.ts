@@ -905,6 +905,48 @@ export const staffApi = {
       return mockDelay(staffStore);
     }
   },
+  create: async (staff: Partial<StaffMember>): Promise<StaffMember> => {
+    try {
+      const res = await axiosInstance.post('/staff', staff);
+      return res.data;
+    } catch {
+      const newStaff: StaffMember = {
+        id: `staff-${Date.now()}`,
+        staffId: `STF-${Math.floor(100 + Math.random() * 900)}`,
+        name: staff.name || 'New Staff',
+        role: staff.role || 'Visa Consultant',
+        branch: staff.branch || 'Colombo Head Office',
+        phone: staff.phone || '+94 77 000 0000',
+        email: staff.email || 'staff@arsvisa.com',
+        status: staff.status || 'Active',
+        joinedDate: staff.joinedDate || new Date().toISOString().split('T')[0]
+      };
+      staffStore.unshift(newStaff);
+      return mockDelay(newStaff);
+    }
+  },
+  update: async (id: string, updates: Partial<StaffMember>): Promise<StaffMember> => {
+    try {
+      const res = await axiosInstance.patch(`/staff/${id}`, updates);
+      return res.data;
+    } catch {
+      const idx = staffStore.findIndex(s => s.id === id);
+      if (idx !== -1) {
+        staffStore[idx] = { ...staffStore[idx], ...updates };
+        return mockDelay(staffStore[idx]);
+      }
+      throw new Error('Staff not found');
+    }
+  },
+  delete: async (id: string): Promise<boolean> => {
+    try {
+      await axiosInstance.delete(`/staff/${id}`);
+      return true;
+    } catch {
+      staffStore = staffStore.filter(s => s.id !== id);
+      return mockDelay(true);
+    }
+  },
   getPerformance: async (): Promise<StaffPerformance[]> => {
     try {
       const res = await axiosInstance.get('/staff/performance');
