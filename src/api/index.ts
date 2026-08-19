@@ -381,7 +381,8 @@ export const eVisaApi = {
         supplierCost: item.supplierCost,
         otherCost: item.otherCost,
         arsServiceCharge: item.arsServiceCharge,
-        estimatedProfit: item.estimatedProfit
+        estimatedProfit: item.estimatedProfit,
+        applicationLink: item.applicationLink
       };
       evisaStore.unshift(newItem);
       return mockDelay(newItem);
@@ -420,6 +421,15 @@ export const eVisaApi = {
         return mockDelay(evisaStore[index]);
       }
       throw new Error('e-Visa not found');
+    }
+  },
+  delete: async (id: string): Promise<boolean> => {
+    try {
+      await axiosInstance.delete(`/evisa/${id}`);
+      return true;
+    } catch {
+      evisaStore = evisaStore.filter(e => e.id !== id);
+      return mockDelay(true);
     }
   }
 };
@@ -859,6 +869,28 @@ export const suppliersApi = {
       supplierStore.unshift(newSup);
       return mockDelay(newSup);
     }
+  },
+  update: async (id: string, updates: Partial<Supplier>): Promise<Supplier> => {
+    try {
+      const res = await axiosInstance.patch(`/suppliers/${id}`, updates);
+      return res.data;
+    } catch {
+      const index = supplierStore.findIndex(s => s.id === id);
+      if (index !== -1) {
+        supplierStore[index] = { ...supplierStore[index], ...updates };
+        return mockDelay(supplierStore[index]);
+      }
+      throw new Error('Supplier not found');
+    }
+  },
+  delete: async (id: string): Promise<boolean> => {
+    try {
+      await axiosInstance.delete(`/suppliers/${id}`);
+      return true;
+    } catch {
+      supplierStore = supplierStore.filter(s => s.id !== id);
+      return mockDelay(true);
+    }
   }
 };
 
@@ -871,6 +903,48 @@ export const staffApi = {
       return res.data;
     } catch {
       return mockDelay(staffStore);
+    }
+  },
+  create: async (staff: Partial<StaffMember>): Promise<StaffMember> => {
+    try {
+      const res = await axiosInstance.post('/staff', staff);
+      return res.data;
+    } catch {
+      const newStaff: StaffMember = {
+        id: `staff-${Date.now()}`,
+        staffId: `STF-${Math.floor(100 + Math.random() * 900)}`,
+        name: staff.name || 'New Staff',
+        role: staff.role || 'Visa Consultant',
+        branch: staff.branch || 'Colombo Head Office',
+        phone: staff.phone || '+94 77 000 0000',
+        email: staff.email || 'staff@arsvisa.com',
+        status: staff.status || 'Active',
+        joinedDate: staff.joinedDate || new Date().toISOString().split('T')[0]
+      };
+      staffStore.unshift(newStaff);
+      return mockDelay(newStaff);
+    }
+  },
+  update: async (id: string, updates: Partial<StaffMember>): Promise<StaffMember> => {
+    try {
+      const res = await axiosInstance.patch(`/staff/${id}`, updates);
+      return res.data;
+    } catch {
+      const idx = staffStore.findIndex(s => s.id === id);
+      if (idx !== -1) {
+        staffStore[idx] = { ...staffStore[idx], ...updates };
+        return mockDelay(staffStore[idx]);
+      }
+      throw new Error('Staff not found');
+    }
+  },
+  delete: async (id: string): Promise<boolean> => {
+    try {
+      await axiosInstance.delete(`/staff/${id}`);
+      return true;
+    } catch {
+      staffStore = staffStore.filter(s => s.id !== id);
+      return mockDelay(true);
     }
   },
   getPerformance: async (): Promise<StaffPerformance[]> => {

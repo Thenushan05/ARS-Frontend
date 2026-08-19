@@ -155,6 +155,7 @@ export interface EVisaService {
   currency: string;
   status: 'Active' | 'Inactive';
   lastUpdated: string;
+  applicationLink?: string;
   // Guarded financial fields
   governmentFee?: number;
   supplierCost?: number;

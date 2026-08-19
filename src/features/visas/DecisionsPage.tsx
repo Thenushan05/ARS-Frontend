@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   CheckCircle2, XCircle, Award, FileText, Search, Filter, Eye, 
-  RotateCcw, AlertTriangle, ShieldCheck, Clock, User, Calendar, Lock, Download, Printer
+  RotateCcw, AlertTriangle, ShieldCheck, Clock, User, Calendar, Lock, Download, Printer, Pencil
 } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import DataTable, { Column } from '../../components/common/DataTable';
@@ -111,6 +111,15 @@ export const DecisionsPage: React.FC = () => {
 
   // Modals
   const [viewingRefusalLetter, setViewingRefusalLetter] = useState<RefusedVisaDecision | null>(null);
+  const [editingDecision, setEditingDecision] = useState<ApprovedVisaDecision | null>(null);
+
+  const handleSaveDecision = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingDecision) {
+      setApprovedList(prev => prev.map(a => a.id === editingDecision.id ? editingDecision : a));
+      setEditingDecision(null);
+    }
+  };
 
   const { hasPermission } = useAuth();
   const canViewRefusalLetter = hasPermission('visa.view');
@@ -178,6 +187,19 @@ export const DecisionsPage: React.FC = () => {
         </span>
       ) 
     },
+    {
+      key: 'actions',
+      header: '',
+      render: (a) => (
+        <button
+          onClick={() => setEditingDecision({ ...a })}
+          className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-500/30 transition-all"
+          title="Update Decision"
+        >
+          <Pencil className="w-4 h-4" />
+        </button>
+      )
+    }
   ];
 
   // 8 Columns for Refused Visas
@@ -413,6 +435,57 @@ export const DecisionsPage: React.FC = () => {
               </button>
             </div>
           </div>
+        </FormModal>
+      )}
+
+      {/* Update Approved Decision Modal */}
+      {editingDecision && (
+        <FormModal
+          isOpen={!!editingDecision}
+          onClose={() => setEditingDecision(null)}
+          title="Update Visa Decision"
+          subtitle={`Update validity and approval date for ${editingDecision.customerName}`}
+          maxWidth="md"
+        >
+          <form onSubmit={handleSaveDecision} className="space-y-4 text-xs">
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Approval Date</label>
+              <input
+                type="date"
+                required
+                value={editingDecision.approvalDate}
+                onChange={(e) => setEditingDecision({...editingDecision, approvalDate: e.target.value})}
+                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-semibold focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Visa Validity</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g., 2026-08-10 to 2026-11-10"
+                value={editingDecision.visaValidity}
+                onChange={(e) => setEditingDecision({...editingDecision, visaValidity: e.target.value})}
+                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-900 dark:text-slate-100 font-semibold focus:outline-none focus:border-blue-500"
+              />
+            </div>
+            
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setEditingDecision(null)}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-semibold"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-md"
+              >
+                Update Decision
+              </button>
+            </div>
+          </form>
         </FormModal>
       )}
     </div>
