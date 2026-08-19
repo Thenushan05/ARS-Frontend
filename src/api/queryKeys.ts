@@ -8,4 +8,21 @@ export const queryKeys = {
   auth: {
     me: ['auth', 'me'] as const,
   },
+  dashboard: (filters?: unknown) => ['dashboard', filters] as const,
+  leads: {
+    list: (filters?: unknown) => ['leads', filters] as const,
+    detail: (id: string) => ['lead', id] as const,
+  },
+  customers: {
+    list: (filters?: unknown) => ['customers', filters] as const,
+    detail: (id: string) => ['customer', id] as const,
+  },
+  tasks: {
+    list: (filters?: unknown) => ['tasks', filters] as const,
+    detail: (id: string) => ['task', id] as const,
+  },
+  appointments: {
+    list: (filters?: unknown) => ['appointments', filters] as const,
+    detail: (id: string) => ['appointment', id] as const,
+  },
 } as const;

@@ -6,9 +6,22 @@ interface StatusBadgeProps {
   className?: string;
 }
 
+// Backend enums are UPPER_SNAKE_CASE (e.g. "PART_PAID", "NEW_INQUIRY"); several modules still pass
+// pre-integration Title-Case display strings ("Part Paid") until their own phase lands. Both need
+// to color-match and both need to render human-friendly — so every status flows through this one
+// normalize/humanize step rather than each page inventing its own mapping (brief §12/§13).
+function humanize(val: string): string {
+  return val
+    .trim()
+    .replace(/_/g, ' ')
+    .split(/\s+/)
+    .map((w) => (w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w))
+    .join(' ');
+}
+
 export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className }) => {
   const getBadgeStyle = (val: string) => {
-    const s = val.trim().toLowerCase();
+    const s = val.trim().toLowerCase().replace(/_/g, ' ');
 
     // 1. GREEN = Paid / Approved / Completed / Verified
     if (['paid', 'approved', 'completed', 'verified', 'accepted'].some(k => s === k || s.includes(k))) {
@@ -43,7 +56,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, className }) =
       )}
     >
       <span className="w-1.5 h-1.5 rounded-full bg-current mr-1.5 opacity-80 shrink-0" />
-      {status}
+      {humanize(status)}
     </span>
   );
 };
