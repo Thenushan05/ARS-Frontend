@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Building2, Lock, Phone, MessageSquare, Plus, Search, Eye, Filter, 
-  CheckCircle2, Globe, ShieldCheck, FileText, Briefcase, DollarSign, Calendar, AlertCircle
+  CheckCircle2, Globe, ShieldCheck, FileText, Briefcase, DollarSign, Calendar, AlertCircle, Trash2, Pencil
 } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import DataTable, { Column } from '../../components/common/DataTable';
@@ -31,6 +31,7 @@ export const SuppliersPage: React.FC = () => {
 
   // Form Modal State (Add/Edit)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
   const [newSupplierName, setNewSupplierName] = useState('');
   const [newCompany, setNewCompany] = useState('');
   const [newCountry, setNewCountry] = useState('United Arab Emirates');
@@ -81,34 +82,80 @@ export const SuppliersPage: React.FC = () => {
     setFilteredSuppliers(result);
   }, [suppliers, statusFilter, searchTerm]);
 
-  // Handle Add Supplier
-  const handleAddSupplier = async (e: React.FormEvent) => {
+  // Modal Helpers
+  const closeModal = () => {
+    setIsAddModalOpen(false);
+    setEditingSupplierId(null);
+    setNewSupplierName('');
+    setNewCompany('');
+    setNewPhone('');
+    setNewWhatsApp('');
+    setNewCountry('United Arab Emirates');
+    setNewServices('e-Visa Processing, Document Translation');
+  };
+
+  const handleOpenEdit = (e: React.MouseEvent, s: Supplier) => {
+    e.stopPropagation();
+    setEditingSupplierId(s.id);
+    setNewSupplierName(s.supplierName);
+    setNewCompany(s.company);
+    setNewCountry(s.country);
+    setNewPhone(s.phone);
+    setNewWhatsApp(s.whatsApp);
+    setNewServices(s.services.join(', '));
+    setIsAddModalOpen(true);
+  };
+
+  // Handle Save Supplier
+  const handleSaveSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const created = await suppliersApi.create({
-        supplierName: newSupplierName,
-        company: newCompany,
-        country: newCountry,
-        phone: newPhone,
-        whatsApp: newWhatsApp,
-        services: newServices.split(',').map(s => s.trim()),
-        status: 'Active',
-        casesHandled: 0,
-        amountPaid: 0,
-        amountPayable: 0
-      });
+      if (editingSupplierId) {
+        const updated = await suppliersApi.update(editingSupplierId, {
+          supplierName: newSupplierName,
+          company: newCompany,
+          country: newCountry,
+          phone: newPhone,
+          whatsApp: newWhatsApp,
+          services: newServices.split(',').map(s => s.trim())
+        });
+        setNotification(`Supplier "${updated.supplierName}" updated successfully!`);
+      } else {
+        const created = await suppliersApi.create({
+          supplierName: newSupplierName,
+          company: newCompany,
+          country: newCountry,
+          phone: newPhone,
+          whatsApp: newWhatsApp,
+          services: newServices.split(',').map(s => s.trim()),
+          status: 'Active',
+          casesHandled: 0,
+          amountPaid: 0,
+          amountPayable: 0
+        });
+        setNotification(`New Supplier "${created.supplierName}" registered successfully!`);
+      }
 
-      setNotification(`New Supplier "${created.supplierName}" registered successfully!`);
       setTimeout(() => setNotification(null), 5000);
-      setIsAddModalOpen(false);
+      closeModal();
       fetchSuppliers();
-
-      setNewSupplierName('');
-      setNewCompany('');
-      setNewPhone('');
-      setNewWhatsApp('');
     } catch {
-      alert('Error registering supplier.');
+      alert(`Error ${editingSupplierId ? 'updating' : 'registering'} supplier.`);
+    }
+  };
+
+  // Handle Delete Supplier
+  const handleDeleteSupplier = async (e: React.MouseEvent, id: string, name: string) => {
+    e.stopPropagation();
+    if (window.confirm(`Are you sure you want to delete supplier "${name}"?`)) {
+      try {
+        await suppliersApi.delete(id);
+        setNotification(`Supplier "${name}" deleted successfully.`);
+        setTimeout(() => setNotification(null), 5000);
+        fetchSuppliers();
+      } catch {
+        alert('Error deleting supplier.');
+      }
     }
   };
 
@@ -267,17 +314,38 @@ export const SuppliersPage: React.FC = () => {
             setActiveTab('Overview');
           }}
           actions={(s) => (
-            <button
-              onClick={() => {
-                setSelectedSupplier(s);
-                setActiveTab('Overview');
-              }}
-              className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-sky-500/15 text-blue-600 dark:text-sky-400 border border-blue-200 dark:border-sky-500/30 text-xs font-semibold hover:bg-blue-100 flex items-center gap-1 transition-all"
-              title="View Supplier Detail Tabs"
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>View Detail</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedSupplier(s);
+                  setActiveTab('Overview');
+                }}
+                className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-sky-500/15 text-blue-600 dark:text-sky-400 border border-blue-200 dark:border-sky-500/30 text-xs font-semibold hover:bg-blue-100 flex items-center gap-1 transition-all"
+                title="View Supplier Detail Tabs"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>View Detail</span>
+              </button>
+              <PermissionGuard permission="supplier.create" fallback={null}>
+                <button
+                  onClick={(e) => handleOpenEdit(e, s)}
+                  className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/30 hover:bg-amber-100 dark:hover:bg-amber-500/30 transition-all"
+                  title="Edit Supplier"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              </PermissionGuard>
+              <PermissionGuard permission="supplier.delete" fallback={null}>
+                <button
+                  onClick={(e) => handleDeleteSupplier(e, s.id, s.supplierName)}
+                  className="p-1.5 rounded-lg bg-rose-50 dark:bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-500/30 hover:bg-rose-100 dark:hover:bg-rose-500/30 transition-all"
+                  title="Delete Supplier"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </PermissionGuard>
+            </div>
           )}
         />
       </div>
@@ -500,16 +568,16 @@ export const SuppliersPage: React.FC = () => {
         </FormModal>
       )}
 
-      {/* Register New Supplier Form Modal */}
+      {/* Register / Edit Supplier Form Modal */}
       {isAddModalOpen && (
         <FormModal
           isOpen={isAddModalOpen}
-          onClose={() => setIsAddModalOpen(false)}
-          title="Register New Supplier / Overseas Agent"
-          subtitle="Add contractor profile for outsourced visa services"
+          onClose={closeModal}
+          title={editingSupplierId ? "Edit Supplier / Overseas Agent" : "Register New Supplier / Overseas Agent"}
+          subtitle={editingSupplierId ? "Update existing contractor profile" : "Add contractor profile for outsourced visa services"}
           maxWidth="lg"
         >
-          <form onSubmit={handleAddSupplier} className="space-y-4 text-xs">
+          <form onSubmit={handleSaveSupplier} className="space-y-4 text-xs">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
@@ -592,7 +660,7 @@ export const SuppliersPage: React.FC = () => {
             <div className="flex justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
               <button
                 type="button"
-                onClick={() => setIsAddModalOpen(false)}
+                onClick={closeModal}
                 className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 font-semibold"
               >
                 Cancel
@@ -601,7 +669,7 @@ export const SuppliersPage: React.FC = () => {
                 type="submit"
                 className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-md"
               >
-                Register Supplier
+                {editingSupplierId ? 'Update Supplier' : 'Register Supplier'}
               </button>
             </div>
           </form>

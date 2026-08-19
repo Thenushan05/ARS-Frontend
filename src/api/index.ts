@@ -869,6 +869,28 @@ export const suppliersApi = {
       supplierStore.unshift(newSup);
       return mockDelay(newSup);
     }
+  },
+  update: async (id: string, updates: Partial<Supplier>): Promise<Supplier> => {
+    try {
+      const res = await axiosInstance.patch(`/suppliers/${id}`, updates);
+      return res.data;
+    } catch {
+      const index = supplierStore.findIndex(s => s.id === id);
+      if (index !== -1) {
+        supplierStore[index] = { ...supplierStore[index], ...updates };
+        return mockDelay(supplierStore[index]);
+      }
+      throw new Error('Supplier not found');
+    }
+  },
+  delete: async (id: string): Promise<boolean> => {
+    try {
+      await axiosInstance.delete(`/suppliers/${id}`);
+      return true;
+    } catch {
+      supplierStore = supplierStore.filter(s => s.id !== id);
+      return mockDelay(true);
+    }
   }
 };
 
